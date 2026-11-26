@@ -7,14 +7,16 @@ rem live in run_console.bat -- "start" mangles quoted executable paths, which is
 rem why an earlier version of this file just printed "Starting..." and did nothing.
 rem
 rem Usage:  start_console.cmd [device] [port]
-rem         default 192.168.31.43:8788   8790
+rem         default 192.168.1.100:8788   8790
+rem         or set AMBER_DEVICE=<speaker-ip>:8788 before running
 rem
 rem Output log: console.log (same folder). Check it when the page says
 rem "cannot connect".
 cd /d "%~dp0"
 
 set "DEVICE=%~1"
-if "%DEVICE%"=="" set "DEVICE=192.168.31.43:8788"
+if "%DEVICE%"=="" set "DEVICE=%AMBER_DEVICE%"
+if "%DEVICE%"=="" set "DEVICE=192.168.1.100:8788"
 set "PORT=%~2"
 if "%PORT%"=="" set "PORT=8790"
 

@@ -5,15 +5,20 @@
 这三件事叠在一起，才决定打断到底是不是当场生效。
 """
 import json
+import os
 import re
 import subprocess
 import time
 import urllib.error
 import urllib.request
 
-ADB = r"C:\android\sdk\platform-tools\adb.exe"
-IP = "192.168.31.168:35361"
-BASE = "http://192.168.31.168:8788"
+# 设备地址默认只是占位，用之前请设环境变量：
+#   AMBER_DEVICE=<音箱IP>:8788   AMBER_ADB=<音箱IP>:5555
+_DEV = os.environ.get("AMBER_DEVICE", "192.168.1.100:8788")
+_DEV = _DEV.replace("http://", "").rstrip("/")
+BASE = "http://" + _DEV
+IP = os.environ.get("AMBER_ADB", _DEV.split(":")[0] + ":5555")
+ADB = os.environ.get("ADB") or r"C:\android\sdk\platform-tools\adb.exe"
 
 
 def adb(*args):

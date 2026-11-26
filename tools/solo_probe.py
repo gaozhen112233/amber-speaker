@@ -4,6 +4,7 @@
 用途：下巴那块灰白圆到底是谁画的。逐块 solo 一眼就能认出来。
 """
 import json
+import os
 import sys
 import subprocess
 import time
@@ -11,9 +12,13 @@ import urllib.request
 
 from PIL import Image, ImageDraw
 
-ADB = "C:/android/sdk/platform-tools/adb.exe"
-DEV = "192.168.31.43:5555"
-BASE = "http://192.168.31.43:8788"
+# 设备地址默认只是占位，用之前请设环境变量：
+#   AMBER_DEVICE=<音箱IP>:8788   AMBER_ADB=<音箱IP>:5555
+DEV = os.environ.get("AMBER_ADB", "192.168.1.100:5555")
+BASE = os.environ.get("AMBER_DEVICE", "192.168.1.100:8788")
+if not BASE.startswith("http"):
+    BASE = "http://" + BASE
+ADB = os.environ.get("ADB") or "C:/android/sdk/platform-tools/adb.exe"
 CROP = (400, 360, 640, 560)   # 未翻转截图里的头部区域
 
 

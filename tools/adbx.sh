@@ -26,8 +26,9 @@ else
 fi
 
 # 无线 adb（设备上 persist.adb.tcp.port=5555）。
-# 路由器里给设备 MAC 做 DHCP 静态绑定，IP 才不会漂；换网段就 export AMBER_ADB=<IP>:5555。
-DEVICE="${AMBER_ADB:-192.168.31.43:5555}"
+# 路由器里给设备 MAC 做 DHCP 静态绑定，IP 才不会漂。
+# 下面的默认值只是占位，请 export AMBER_ADB=<音箱IP>:5555。
+DEVICE="${AMBER_ADB:-192.168.1.100:5555}"
 
 connect() {
     "$ADB" connect "$DEVICE" >/dev/null 2>&1

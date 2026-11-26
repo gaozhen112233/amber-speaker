@@ -1369,7 +1369,7 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
                     Log.i(TAG, "摆放 " + dir + " -> x=" + x + " y=" + y + " scale=" + scale);
                     return;
                 }
-                // 副屏（投屏）：{"action":"video","value":"http://192.168.31.5:8000/a.mp4"}。
+                // 副屏（投屏）：{"action":"video","value":"http://192.168.1.10:8000/a.mp4"}。
                 // 传 "stop"/"off" 收工回大肥鱼；不传值也当收工。
                 // 视频是画在同一块 GL 画布上的（外部纹理），不是另开 Activity —— 所以：
                 // 模型不重载（换回来是一帧的事）、背景透明（灯带的光照样透上来）、

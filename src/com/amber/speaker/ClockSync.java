@@ -35,7 +35,7 @@ public final class ClockSync {
      * 连不上就立刻换下一个，不会白等 4 秒。想改成自己家的地址就改这一行。
      */
     private static final String[] PROBES = {
-            "http://192.168.31.107:6185",   // 局域网兜底（可以是任意内网 HTTP 服务）
+            "http://192.168.1.100:6185",   // 局域网兜底：改成你 NAS/主机的地址，用不上就删掉这行
             "http://connect.rom.miui.com/generate_204",
             "http://www.baidu.com",
     };

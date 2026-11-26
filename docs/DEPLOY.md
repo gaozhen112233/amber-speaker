@@ -68,6 +68,16 @@ adb shell su -c 'setprop persist.adb.tcp.port 5555'
 ```
 
 > 强烈建议在路由器里给音箱做 **DHCP 静态绑定**（按 MAC）。IP 一变，调参台、保活脚本、AstrBot 的 `device_url` 全要跟着改。
+>
+> 仓库里的脚本都用 **`AMBER_ADB`** 指无线 adb 地址、**`AMBER_DEVICE`** 指 HTTP 地址，默认值只是占位
+> （`192.168.1.100`）。设一次省得每次都输：
+>
+> ```bash
+> export AMBER_ADB=<音箱IP>:5555
+> export AMBER_DEVICE=<音箱IP>:8788
+> ```
+>
+> Windows 用 `set AMBER_ADB=<音箱IP>:5555`（当前窗口有效）。
 
 **验收**：拔掉 USB，`adb -s <音箱IP>:5555 shell echo ok` 能回 `ok`。
 
@@ -294,6 +304,7 @@ curl -X POST -H 'Content-Type: application/json' \
 # Windows：双击 tools/model_console/start_console.cmd
 # 其它平台：
 python tools/model_console/server.py <音箱IP>:8788
+# 也可以先 export AMBER_DEVICE=<音箱IP>:8788，然后不带参数启动
 # 浏览器打开 http://127.0.0.1:8790/
 ```
 

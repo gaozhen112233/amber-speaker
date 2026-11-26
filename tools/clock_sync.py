@@ -9,7 +9,7 @@
 用法：
     python tools/clock_sync.py              # 通过 adb forward 推一次
     python tools/clock_sync.py --watch 300  # 每 300 秒推一次（常开）
-    python tools/clock_sync.py --host 192.168.31.168:8788   # 走局域网直连（AstrBot 侧）
+    python tools/clock_sync.py --host 192.168.1.100:8788   # 走局域网直连（AstrBot 侧）
 
 设备端只记偏移量、不改系统时间（改系统时间要 root，Magisk 在这台机器上静默拒绝），
 所以这个脚本可以随时重复跑，没有副作用。
@@ -65,7 +65,7 @@ def state(base):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default=None, help="设备地址，如 192.168.31.168:8788；不给就走 adb")
+    parser.add_argument("--host", default=None, help="设备地址，如 192.168.1.100:8788；不给就走 adb")
     parser.add_argument("--watch", type=int, default=0, help="每隔多少秒推一次；0 表示只推一次")
     args = parser.parse_args()
 

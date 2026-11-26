@@ -10,8 +10,9 @@ OPTIONS 又是 404（只认 POST/GET 那几个路径）。所以页面里的所�
   index.txt    —— 表情（exp）与动作（motion）的中文名 → 文件映射
 
 用法：
-  python tools/model_console/server.py            # 默认 192.168.31.43:8788
-  python tools/model_console/server.py 192.168.31.43:8788 8790
+  python tools/model_console/server.py                       # 用 console.json 里的地址
+  python tools/model_console/server.py 192.168.1.100:8788 8790
+  AMBER_DEVICE=192.168.1.100:8788 python tools/model_console/server.py
 """
 import http.client
 import json
@@ -44,7 +45,7 @@ CONFIG_FILE = os.path.join(HERE, "console.json")
 #   1. 命令行参数      python server.py 192.168.1.20:8788 8790
 #   2. 环境变量        AMBER_DEVICE / AMBER_PORT / ADB
 #   3. console.json    {"device": "...", "port": 8790, "adb": "..."}
-#   4. 内置默认值      192.168.31.43:8788（作者家里那台）
+#   4. 内置默认值      192.168.1.100:8788（占位，改了就能用）
 #
 # 网页顶上也能直接改地址，保存后写回 console.json 并立即生效，不用重启。
 # ---------------------------------------------------------------------------
@@ -61,10 +62,10 @@ def load_config():
 
 CFG = load_config()
 
-DEVICE = (os.environ.get("AMBER_DEVICE")
-          or (sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "")
+DEVICE = ((sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "")
+          or os.environ.get("AMBER_DEVICE")
           or CFG.get("device")
-          or "192.168.31.43:8788").strip()
+          or "192.168.1.100:8788").strip()
 PORT = int(os.environ.get("AMBER_PORT") or
            (sys.argv[2] if len(sys.argv) > 2 else 0) or
            CFG.get("port") or 8790)

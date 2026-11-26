@@ -328,7 +328,7 @@ public final class SayServer {
      * POST /video —— 副屏播一段视频 / 收工 / 调抠像。
      *
      * <pre>
-     *   POST /video?url=http%3A%2F%2F192.168.31.10%3A8000%2Fa.mp4&loop=1
+     *   POST /video?url=http%3A%2F%2F192.168.1.10%3A8000%2Fa.mp4&loop=1
      *   POST /video   {"url":"http://…/a.mp4","loop":true}      ← 推荐，省掉两次编码
      *   POST /video?stop=1
      *   POST /video?key=green:0.30

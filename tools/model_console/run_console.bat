@@ -7,7 +7,8 @@ rem Args: [device] [port]
 cd /d "%~dp0"
 
 set "DEVICE=%~1"
-if "%DEVICE%"=="" set "DEVICE=192.168.31.43:8788"
+if "%DEVICE%"=="" set "DEVICE=%AMBER_DEVICE%"
+if "%DEVICE%"=="" set "DEVICE=192.168.1.100:8788"
 set "PORT=%~2"
 if "%PORT%"=="" set "PORT=8790"
 

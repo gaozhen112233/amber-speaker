@@ -31,6 +31,17 @@ curl http://<设备IP>:8788/state        # 验收：ok=true、frames 在涨、co
 `build.py` 与 `jni/build.py` 会自动探测，也可以用 `ANDROID_HOME` / `JAVA_HOME` /
 `ANDROID_NDK_HOME` 指定。
 
+## 环境变量（设备地址一律不要写死）
+
+| 变量 | 作用 | 默认（占位） |
+|---|---|---|
+| `AMBER_ADB` | 无线 adb 的 `IP:5555`，`tools/adbx.sh` 与探测脚本用它 | `192.168.1.100:5555` |
+| `AMBER_DEVICE` | 设备 HTTP 地址，调参台与探测脚本用它 | `192.168.1.100:8788` |
+| `AMBER_PORT` | 调参台本地端口 | `8790` |
+| `ADB` | adb 可执行文件路径 | 自动探测 |
+
+优先级：命令行参数 > 环境变量 > `tools/model_console/console.json` > 内置占位值。
+
 ## 改代码前必须知道的硬约束
 
 | 约束 | 违反的后果 |
@@ -60,7 +71,10 @@ curl http://<设备IP>:8788/state        # 验收：ok=true、frames 在涨、co
 
 ## 不要做的事
 
-- 不要把模型、音色、`jni/local/libLive2DCubismCore*.a` 提交进仓库（有版权，`.gitignore` 已排除）；
+- 不要把模型、音色、以及 `jni/local/` 下的 Cubism SDK 文件（`libLive2DCubismCore*.a`、
+  `CubismRenderer_OpenGLES2.cpp`、`CubismShader_OpenGLES2.cpp`）提交进仓库——都属专有许可，
+  `.gitignore` 与 `tools/pack_release.py` 都已排除；
+- 不要把某个人的内网 IP 写进代码默认值（用上表的环境变量，占位值保持 `192.168.1.100`）；
 - 不要把密码、token、私钥写进任何文件；`contrib/deploy_plugin.py` 的历史版本曾硬编码过 NAS 密码，
   现在全部走环境变量；
 - 不要 `git push --force` 到主分支；
