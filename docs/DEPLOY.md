@@ -28,6 +28,8 @@
 | 音箱 | 狗尾草琥珀全息音箱（la0920 / MSM8909） | 别的机器要自己改灯带、传感器、屏幕方向的适配 |
 | 系统 | Android 5.1（API 22），**已 root（Magisk）** | 没有 root 也能跑，但**熄屏、人体感应、开机保活会失效**（见 §3） |
 | 电脑 | JDK 17 + Android SDK（build-tools / platform 33） | 构建用；不需要 Android Studio，也不需要 Gradle |
+| Cubism SDK | Cubism Core 静态库 + 两个渲染器 `.cpp` | **不含在仓库里**（授权不允许再分发），从官网下载后放 `jni/local/`，见 §5 |
+| Live2D 模型 | 一个 Cubism 4 模型（`.moc3` + 贴图 + `model3.json`） | **不含在仓库里**，先用官方免费样例跑通链路，见 §6.1 |
 | 主机 | 能跑 Docker 的 NAS / 小主机 / 树莓派 | 跑 AstrBot；语音识别与 TTS 都在它上面 |
 | 网络 | 同一个局域网 | 音箱要能访问主机的 8789，主机要能访问音箱的 8788 |
 
@@ -201,7 +203,28 @@ ls -l jni/build/libambergl.so     # 应该几百 KB
 
 ## 6. 准备模型
 
-仓库不含模型。把**你有权使用**的 Live2D 模型放进 `assets/model/`，结构：
+**仓库里没有模型，这是第一步最容易卡住的地方。**
+
+没有 `assets/model/` 时 App 照样能装能启动，但画面会停在「模型加载失败」——
+`adb logcat -d -s AmberGL:V | tail` 里是 `读不到 model3.json`。不是装坏了，是确实没东西可画。
+
+### 6.1 先用官方样例模型把链路跑通
+
+别急着找大肥鱼。先用 Live2D 官方免费样例验证「能解析、能出图、能动」：
+
+1. 打开 <https://www.live2d.com/en/learn/sample/>，挑一个（**Hiyori Momose** 或 **Haru** 最省事），下载 zip；
+2. 解压，找到里面的 `xxx.model3.json`；
+3. 建目录 `assets/model/`，把解压出的**全部内容**拷进去；
+4. **把 `xxx.model3.json` 改名成 `model3.json`** —— 代码按固定文件名找（`jni/src/Model.cpp` 里拼的就是 `directory + "model3.json"`），名字不对就还是「读不到 model3.json」；
+5. 其余文件保持相对路径不变（`moc3`、`textures/`、`motion/`、`exp/` 等）。json 内部引用的是相对路径，不用改。
+
+这些样例适用 [Live2D Free Material License](https://www.live2d.com/eula/live2d-free-material-license-agreement_en.html)：学习、验证 SDK 集成没问题，商用前务必读一遍条款。
+
+跑通这一步，屏幕上出现角色了，再往下做才有意义。
+
+### 6.2 换成你自己的模型
+
+换成**你有权使用**的 Live2D 模型，同样放进 `assets/model/`，结构：
 
 ```
 assets/model/

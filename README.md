@@ -157,7 +157,7 @@ docs/                 部署、硬件、设置、接口、排障、二次开发
 
 这个仓库**只包含代码**，不包含任何模型或音色：
 
-- `assets/model*/`（Live2D 模型）与 `assets/voice/`（预录音频）被 `.gitignore` 排除；
+- `assets/model*/`（Live2D 模型）与 `assets/voice/`（预录音频）被 `.gitignore` 排除——**没有模型时 App 能启动，但画面会停在「模型加载失败」**，先按 [DEPLOY §6.1](docs/DEPLOY.md) 用 Live2D 官方免费样例模型把链路跑通；
 - `jni/local/libLive2DCubismCore*.a` 是 Live2D 的专有 SDK，需要你从[官网](https://www.live2d.com/sdk/download/native/)下载后放进 `jni/local/`；
 - 你放入的模型必须是你自己拥有或获得授权的作品。
 
