@@ -1,18 +1,24 @@
+<div align="center">
+
 # 狗尾草琥珀全息智能音箱 · 接入大肥鱼
 
-把一台「狗尾草琥珀」桌面音箱接入大肥鱼，改造成一个能互动的全息投影桌面角色——她会看你、会动、会说话。
+**把一台被原厂放弃的桌面音箱，改成会看你、会动、会说话的全息桌面角色**
 
-> 硬件是一块 1024×600 的屏 + LED 灯带舞台 + 四麦阵列 + PIR 人体感应 + 一颗 MSM8909。  
-> 原厂放弃项目，只能拿来当蓝牙音箱。这个项目把屏幕接管过来，用 Live2D 渲染一个角色，  
-> 再把她接到 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 上——于是她能听、能说、能做动作，给大肥鱼完整的一生。
+![Android](https://img.shields.io/badge/Android-5.1%20%2F%20API%2022-3ddc84?logo=android&logoColor=white)
+![Live2D](https://img.shields.io/badge/Live2D-Cubism%204-ff69b4)
+![ABI](https://img.shields.io/badge/ABI-armeabi--v7a-blue)
+![release](https://img.shields.io/github/v/release/gaozhen112233/amber-speaker?color=orange)
+![license](https://img.shields.io/github/license/gaozhen112233/amber-speaker)
 
-![platform](https://img.shields.io/badge/Android-5.1%20%2F%20API%2022-3ddc84)
+[快速开始](docs/DEPLOY.md) · [硬件针脚](docs/HARDWARE.md) · [AstrBot 接线](docs/ASTRBOT.md) · [可改设置](docs/SETTINGS.md) · [HTTP API](docs/API.md) · [故障排查](docs/TROUBLESHOOTING.md) · [发布包](https://github.com/gaozhen112233/amber-speaker/releases/latest)
 
-![abi](https://img.shields.io/badge/ABI-armeabi--v7a-blue)
+</div>
 
-![device](https://img.shields.io/badge/device-MSM8909%20%2F%201GB-lightgrey)
+一台 1024×600 的屏 + LED 灯带舞台 + 四麦阵列 + PIR 人体感应 + 一颗 MSM8909。  
+原厂放弃项目，只剩蓝牙音箱的功能。这个项目把屏幕接管过来，用 Live2D 渲染一个角色，  
+再把她接到 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 上——于是她能听、会看、会说、能做动作。
 
-![license](https://img.shields.io/badge/license-MIT-black)
+> 她叫大肥鱼。这个项目想做的不是一台音箱，而是给她完整的一生。
 
 ---
 
@@ -36,11 +42,9 @@
 
 调参台（本地网页）可以把上面几乎每一项都改掉，不用重新编译：
 
-![调参台](docs/images/console.png)
+<img src="docs/images/console.png" width="860" alt="调参台">
 
 > 截图里是作者的模型；仓库不含任何模型，见 [模型与版权](#模型与版权)。
-
-
 
 ---
 
@@ -170,3 +174,7 @@ Cubism SDK、Live2D 模型、音色模型与预录音频**不在这份 MIT 里**
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) + SenseVoice：本地语音识别
 - [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) / [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)：语音合成与音色
 - 以及所有在 issue 和日志里被反复 debug 的周末。
+
+---
+
+如果这个项目对你有帮助，或者你也在折腾同一台机器，欢迎点个 ⭐，或者开个 issue 说说你把它改成了什么样。
