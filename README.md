@@ -159,6 +159,8 @@ docs/                 部署、硬件、设置、接口、排障、二次开发
 
 代码本身是 MIT。详见 [LICENSE](LICENSE)。
 
+Cubism SDK、Live2D 模型、音色模型与预录音频**不在这份 MIT 里**，各自的授权边界写在 [THIRD-PARTY.md](THIRD-PARTY.md)。
+
 ---
 
 ## 致谢
