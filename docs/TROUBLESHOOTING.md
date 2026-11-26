@@ -47,6 +47,10 @@ curl http://<音箱IP>:8788/state
 
 四种原因，按出现频率：
 
+> **如果是别人的机器 / 全新部署，先看这条**：`assets/voice/` 里那 24 句预录 wav 不在仓库里，
+> 唤醒应答会直接抛 `FileNotFoundException: voice/xxx.wav`，表现是「灯带亮了、画面动了，但一声不吭」。
+> 补法见 [DEPLOY §6.3](DEPLOY.md)。
+
 **① TTS 的 WAV 头是坏的（最常见）**
 
 流式合成输出的 WAV，头里 size 字段是 `0xFFFFFFxx`。设备侧：
