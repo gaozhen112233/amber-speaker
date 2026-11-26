@@ -47,6 +47,9 @@ CONFIG_FILE = os.path.join(HERE, "console.json")
 #   3. console.json    {"device": "...", "port": 8790, "adb": "..."}
 #   4. 内置默认值      192.168.1.100:8788（占位，改了就能用）
 #
+# 占位值等同于「没填」：启动脚本不带参数时会传这个地址，如果直接采信，
+# 网页里存进 console.json 的地址就永远轮不到。所以占位值一律跳过，继续往下找。
+#
 # 网页顶上也能直接改地址，保存后写回 console.json 并立即生效，不用重启。
 # ---------------------------------------------------------------------------
 def load_config():
@@ -62,10 +65,25 @@ def load_config():
 
 CFG = load_config()
 
-DEVICE = ((sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "")
-          or os.environ.get("AMBER_DEVICE")
-          or CFG.get("device")
-          or "192.168.1.100:8788").strip()
+PLACEHOLDER = "192.168.1.100:8788"
+
+
+def _norm(value):
+    """把「没填」和「还是占位值」同样看待。
+
+    启动脚本在没有参数时会传一个占位地址过来，如果直接采信，网页里改过并
+    存进 console.json 的地址就永远轮不到——表现为「每次双击都跳回默认 IP」。
+    """
+    text = (value or "").strip().rstrip("/")
+    if text.startswith("http://"):
+        text = text[7:]
+    return "" if text in ("", PLACEHOLDER) else text
+
+
+DEVICE = (_norm(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "")
+          or _norm(os.environ.get("AMBER_DEVICE"))
+          or _norm(CFG.get("device"))
+          or PLACEHOLDER)
 PORT = int(os.environ.get("AMBER_PORT") or
            (sys.argv[2] if len(sys.argv) > 2 else 0) or
            CFG.get("port") or 8790)
