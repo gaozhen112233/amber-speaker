@@ -27,7 +27,7 @@ VERSION = "0.2.0"
 
 # 明确要带上的顶层条目
 INCLUDE = [
-    "README.md", "LICENSE", "CHANGELOG.md", ".gitignore",
+    "README.md", "LICENSE", "CHANGELOG.md", ".gitignore", ".gitattributes", "AGENTS.md",
     "build.py", "deploy.py", "AndroidManifest.xml",
     "src", "jni/src", "jni/CMakeLists.txt", "jni/build.py", "jni/local",
     "tools", "docs", "examples", "contrib",
