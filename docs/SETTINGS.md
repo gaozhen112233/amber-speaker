@@ -101,6 +101,13 @@
 | 灯带设备节点 / SN3218 命令 | `src/.../led/NativeLed.java` | `ioctl` 常量 |
 | 人体感应键码 | `src/.../sensor/NativeHum.java` | 64（不是 `getevent` 报的 61） |
 | 渲染批次键 | `jni/local/CubismRenderer_OpenGLES2.cpp` | 最近一次修的是「批次键必须带乘算/加算色」 |
+| 待机小剧场台词 | `assets/skits.txt` | 格式见文件头注释；**assets 打进 APK，改完必须 `python build.py`** |
+| 唤醒 / 走近 / 在场开场白 | `src/.../sound/WakeReply.java` | `VOICE_OPENERS`、`PROXIMITY_OPENERS`、`PRESENCE_OPENERS` 三个数组 |
+| 预录句映射（台词 → wav） | `src/.../sound/WakeReply.java` | `PRERECORDED`，改台词要同时补同名的 `assets/voice/*.wav` |
+| 定时播报台词 | `src/.../WakeState.java` | `line = "早上好呀主人"` / `"好困啊~我去睡了~晚安主人"` |
+
+> `assets/mutter.txt`（152 行独白）目前**没有代码读取**，是早期版本留下来的示例文本，
+> 留着是为了看「一句话 + 动作」的写法。要它生效得自己接进 `SkitPlayer` 或说话通路。
 
 ---
 
