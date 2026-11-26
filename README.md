@@ -157,7 +157,7 @@ docs/                 部署、硬件、设置、接口、排障、二次开发
 
 这个仓库**只包含代码**，不包含任何模型或音色：
 
-- `assets/model*/`（Live2D 模型）与 `assets/voice/`（24 句预录应答）被 `.gitignore` 排除——**没有模型时 App 能启动，但画面会停在「模型加载失败」**，先按 [DEPLOY §6.1](docs/DEPLOY.md) 用 Live2D 官方免费样例模型把链路跑通；**没有预录音则喊她不应声**，见 [DEPLOY §6.3](docs/DEPLOY.md)；
+- `assets/model*/`（Live2D 模型）与 `assets/voice/`（24 句预录应答）被 `.gitignore` 排除——**没有模型时 App 能启动，但画面会停在「模型加载失败」**；原版大肥鱼模型作者已免费放出，获取方式见 [DEPLOY §6.1](docs/DEPLOY.md)，只想先跑通链路也可以用 Live2D 官方样例（§6.2）；**没有预录音则喊她不应声**，见 [DEPLOY §6.4](docs/DEPLOY.md)；
 - `jni/local/libLive2DCubismCore*.a` 是 Live2D 的专有 SDK，需要你从[官网](https://www.live2d.com/sdk/download/native/)下载后放进 `jni/local/`；
 - 你放入的模型必须是你自己拥有或获得授权的作品。
 
@@ -173,6 +173,7 @@ Cubism SDK、Live2D 模型、音色模型与预录音频**不在这份 MIT 里**
 - [Live2D Cubism SDK](https://www.live2d.com/sdk/)：模型与渲染核心
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) + SenseVoice：本地语音识别
 - [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) / [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)：语音合成与音色
+- **大肥鱼 Live2D 模型**：美术 @神宫凉子、绑定 @霓虹猫_NeonNeko，人设 @ZipZipPipe / @上善无形（[免费公开](https://www.bilibili.com/video/BV1KmxY66EZ3/)，本仓库不转存）
 - 以及所有在 issue 和日志里被反复 debug 的周末。
 
 ---
