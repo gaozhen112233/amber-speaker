@@ -1,0 +1,55 @@
+# ---------- 构建产物 ----------
+/build/
+/out/
+*.apk
+*.apk.idsig
+jni/build/
+*.o
+*.so
+*.a
+
+# ---------- 不进仓库的资源（体积大 / 有版权 / 含个人信息）----------
+# Live2D 模型：每个 15~20MB，且是各自作者的版权作品，不能随代码分发。
+# 自己放：assets/model/（默认）、assets/model_miku/、assets/model_sakura/
+/assets/model/
+/assets/model_miku/
+/assets/model_sakura/
+# 预录音频（唤醒应答）：是本人/本机 TTS 生成的声音，不公开
+/assets/voice/
+# Live2D Cubism Core（专有 SDK 的静态库，必须自行从官网下载后放进 jni/local/）
+/jni/local/libLive2DCubismCore*.a
+# Cubism SDK 的渲染器源码：版权属 Live2D Inc.，许可证禁止再分发。
+# 同样从官网 SDK 包里的 Framework/src/Rendering/OpenGLES2/ 拷进来，再跑 tools/patch_renderer.py
+/jni/local/CubismRenderer_OpenGLES2.cpp
+/jni/local/CubismShader_OpenGLES2.cpp
+
+# ---------- 本机配置与日志 ----------
+tools/model_console/console.json
+tools/model_console/*.log
+*.log
+__pycache__/
+*.pyc
+
+# ---------- 签名与发布产物 ----------
+# debug.keystore 里有私钥，谁拿到都能签出「同签名」的包
+debug.keystore
+# 发布包由 GitHub Releases 上传，不进仓库（每打一次就换一次，入库只会污染历史）
+/dist/
+
+# ---------- 作者本机的调试页面与工具 ----------
+/win/
+voice_preview.html
+预录音频清单.html
+
+# ---------- 历史遗留的临时脚本 ----------
+tmp_*.py
+_chk*.py
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 一次性的像素排查脚本（历史存档，不属于项目功能）
+tools/chin_*.py

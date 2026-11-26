@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>琥珀 · 模型调参台</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --border: #e3e5e8;
+    --border-soft: #eef0f2;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --faint: #9aa3af;
+    --accent: #e74c3c;
+    --accent-soft: #fdecea;
+    --ok: #16a34a;
+    --ok-soft: #e8f7ed;
+    --warn: #b45309;
+    --warn-soft: #fef6e7;
+    --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 14px; line-height: 1.55;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 16px; font-weight: 650; letter-spacing: .2px; }
+  h1 span { color: var(--accent); }
+  .dev { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: inline-block; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+  .dot.off { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .badge {
+    font-size: 11.5px; padding: 3px 9px; border-radius: 999px;
+    background: #f1f3f5; color: var(--muted); font-family: var(--mono);
+  }
+  .badge.hi { background: var(--accent-soft); color: var(--accent); }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+
+  /* ---------- 布局 ---------- */
+  .layout {
+    display: grid; grid-template-columns: minmax(0, 1fr) 384px;
+    gap: 18px; padding: 18px 20px 80px; align-items: start;
+    max-width: 1600px; margin: 0 auto;
+  }
+  @media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .card + .card { margin-top: 14px; }
+  .card-head {
+    padding: 11px 14px; border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 600; font-size: 13.5px;
+  }
+  .card-head .hint { font-weight: 400; font-size: 12px; color: var(--faint); }
+  .card-body { padding: 12px 14px; }
+
+  /* ---------- 工具栏 ---------- */
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .search {
+    flex: 1; min-width: 160px; padding: 7px 11px; font-size: 13px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fafbfc;
+    font-family: inherit; color: var(--text);
+  }
+  .search:focus { outline: none; border-color: var(--accent); background: #fff; }
+  button {
+    font-family: inherit; font-size: 12.5px; cursor: pointer;
+    padding: 6px 11px; border-radius: 8px;
+    border: 1px solid var(--border); background: #fff; color: var(--text);
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  button:hover { border-color: #cfd4da; background: #fafbfc; }
+  button:active { transform: translateY(.5px); }
+  button.danger { color: var(--accent); border-color: #f6c9c3; background: var(--accent-soft); }
+  button.danger:hover { background: #fbdbd6; }
+  button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+  button.primary:hover { background: #d44233; }
+  button.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ---------- 参数组 ---------- */
+  .group { border-top: 1px solid var(--border-soft); }
+  .group:first-child { border-top: none; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 10px 14px; user-select: none;
+  }
+  .group-head:hover { background: #fafbfc; }
+  .group-head .title { font-weight: 600; font-size: 13px; }
+  .group-head .count { font-size: 11.5px; color: var(--faint); font-family: var(--mono); }
+  .group-head .tag {
+    font-size: 10.5px; padding: 1px 7px; border-radius: 4px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .group-head .tag.gray { background: #f1f3f5; color: var(--muted); }
+  .group-head .chev { margin-left: auto; color: #b9c0c8; font-size: 12px; line-height: 1; transition: transform .15s; }
+  .group.closed .chev { transform: rotate(-90deg); }
+  .group.closed .group-body { display: none; }
+  .group-body { padding: 2px 12px 12px; }
+
+  .p {
+    padding: 3px 8px; border-radius: 8px; border: 1px solid transparent;
+    transition: background .12s, border-color .12s;
+  }
+  .p:hover { background: #fafbfc; border-color: var(--border-soft); }
+  .p.dirty { background: var(--accent-soft); border-color: #f6d5d0; }
+  .p-row {
+    display: grid; align-items: center; gap: 10px;
+    grid-template-columns: 168px minmax(80px, 1fr) 52px auto;
+  }
+  @media (max-width: 720px) { .p-row { grid-template-columns: 110px minmax(60px, 1fr) 46px auto; } }
+  .p-name {
+    font-family: var(--mono); font-size: 11.5px; color: #374151;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .p.phys .p-name { color: var(--faint); }
+  .p-val {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--muted); text-align: right;
+  }
+  .p.dirty .p-val { color: var(--accent); font-weight: 600; }
+  .p-ops { display: flex; gap: 3px; opacity: 0; transition: opacity .12s; }
+  .p:hover .p-ops, .p.dirty .p-ops { opacity: 1; }
+  .p-ops button { padding: 1px 6px; font-size: 10.5px; border-radius: 5px; color: var(--muted); }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 14px;
+    background: transparent; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px; background: #e6e8eb;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; margin-top: -5px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  }
+  .p.phys input[type=range]::-webkit-slider-thumb { border-color: #b9c0c8; }
+
+  /* ---------- 右侧 ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 12.5px; padding: 5px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: #fff; color: #374151;
+  }
+  .chip:hover { border-color: #cfd4da; background: #fafbfc; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* 大幅度动作：加底色，和「原版幅度小」的那批分开 */
+  .chip.big { border-color: #f0c9c3; background: #fdf3f1; color: #a83a2c; }
+  .chip.big:hover { background: #fbe8e4; border-color: #e8b2a9; }
+  .chips .subhead { flex: 0 0 100%; font-size: 11px; color: var(--faint); margin: 9px 0 1px; }
+  .pose {
+    display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+    padding: 8px 11px; border-radius: 9px; text-align: left;
+    border: 1px solid var(--border); background: #fff;
+  }
+  .pose b { font-size: 13px; font-weight: 600; }
+  .pose small { font-size: 11px; color: var(--faint); font-family: var(--mono); }
+  .pose:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .poses { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .console-input {
+    width: 100%; padding: 8px 11px; font-family: var(--mono); font-size: 12.5px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fafbfc; color: var(--text);
+  }
+  .console-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .log {
+    margin-top: 8px; max-height: 168px; overflow-y: auto;
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    border-top: 1px dashed var(--border); padding-top: 8px;
+  }
+  .log div { padding: 1px 0; word-break: break-all; }
+  .log .t { color: var(--faint); }
+  .log .err { color: var(--accent); }
+
+  textarea {
+    width: 100%; min-height: 92px; padding: 9px 11px; resize: vertical;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+    border: 1px solid var(--border); border-radius: 8px; background: #fafbfc; color: #374151;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+  .note {
+    font-size: 12px; color: var(--warn); background: var(--warn-soft);
+    border: 1px solid #f6e3bd; border-radius: 9px; padding: 8px 11px;
+    line-height: 1.5;
+  }
+  .note b { color: #92400e; }
+  .foot { color: var(--faint); font-size: 11.5px; text-align: center; padding: 8px 0 24px; }
+  code {
+    font-family: var(--mono); font-size: 11.5px; padding: 1px 5px;
+    border-radius: 4px; background: #f1f3f5; color: #374151;
+  }
+  .note code { background: #fbe6c8; color: #92400e; }
+  .note.plain { color: var(--muted); background: #f8f9fa; border-color: var(--border-soft); }
+  .note.plain code { background: #eef1f4; color: #4b5563; }
+  /* 灯光/背光滑块行 */
+  .srow { display: flex; align-items: center; gap: 9px; padding: 4px 2px; }
+  .srow .sname { font-size: 12.5px; color: #374151; width: 62px; flex: none; }
+  .srow input[type=range] { flex: 1; margin: 0; }
+  /* 设置面板里的输入控件：时间 / 数字 / 地址，统一成和滑块同一行的高度 */
+  .srow input[type=time], .srow input[type=number], .srow input[type=text] {
+    flex: 1; min-width: 0; padding: 4px 8px; font-size: 12.5px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: #fff; color: var(--text); font-family: var(--mono);
+  }
+  .srow input[type=number] { max-width: 84px; }
+  .srow input[type=time]:focus, .srow input[type=number]:focus, .srow input[type=text]:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .srow input.ck { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
+  .set-sec {
+    margin: 12px 0 4px; padding-top: 9px; border-top: 1px dashed var(--border-soft);
+    font-size: 11.5px; letter-spacing: .04em; color: var(--muted);
+  }
+  .set-sec:first-child { margin-top: 2px; padding-top: 0; border-top: 0; }
+  .kv { display: flex; flex-wrap: wrap; gap: 7px 18px; font-size: 12.5px; color: #374151; }
+  .kv b { font-family: var(--mono); font-weight: 600; color: var(--text); }
+  .srow .sval { font-family: var(--mono); font-size: 12px; color: var(--muted);
+    width: 42px; text-align: right; flex: none; }
+  /* 开关行下面的解释文字：单独一行，别挤进 .sval 那 42px 里（会变成竖排） */
+  .sdesc { margin: -1px 0 5px 71px; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+  .kv span { white-space: nowrap; }
+  .light-presets { margin-top: 8px; }
+
+  /* ---------- 副屏：设备上已存视频的清单 ---------- */
+  .vlist {
+    margin-top: 6px; max-height: 168px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 8px; background: #fcfcfd;
+  }
+  .vlist:empty { display: none; }
+  .vitem {
+    display: flex; align-items: center; gap: 6px; padding: 5px 9px;
+    border-bottom: 1px solid var(--border-soft); font-size: 12.5px;
+  }
+  .vitem:last-child { border-bottom: none; }
+  .vitem.playing { background: var(--ok-soft); }
+  .vitem .vname {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: var(--mono); color: var(--text);
+  }
+  .vitem .vsize { flex: none; color: var(--faint); font-family: var(--mono); font-size: 11.5px; }
+  .vitem button {
+    flex: none; border: none; background: none; cursor: pointer;
+    font-size: 12px; padding: 2px 5px; border-radius: 5px;
+  }
+  .vitem button.vplay { color: #2563eb; }
+  .vitem button.vplay:hover { background: #eff6ff; }
+  .vitem button.vdel { color: var(--accent); }
+  .vitem button.vdel:hover { background: var(--accent-soft); }
+
+  /* ---------- 摆台：实时预览 ---------- */
+  .preview {
+    position: relative; width: 100%; aspect-ratio: 1024 / 600;
+    border-radius: 10px; overflow: hidden; background: #0b0e14;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preview img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    /* 截图是「上下颠倒」的：系统 rotation=2 转了一次，光路又翻了一次，合成到
+       framebuffer 里就成了上下颠倒。翻回来才是人站在音箱前看到的样子。
+       注意只翻 y，不能 rotate(180deg) —— 那会连左右一起翻，拖动方向就反了。 */
+    transform: scaleY(-1);
+    cursor: grab; touch-action: none; user-select: none;
+  }
+  .preview img:active { cursor: grabbing; }
+  .preview .ph {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #7d8590; font-size: 12px; text-align: center; padding: 0 16px;
+  }
+  .preview .tagline {
+    position: absolute; left: 8px; top: 6px; font-size: 11px; color: #8b949e;
+    font-family: var(--mono); background: rgba(0,0,0,.35); padding: 1px 6px; border-radius: 5px;
+  }
+  label.chip { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>琥珀 · <span>模型调参台</span></h1>
+  <div class="dev"><span id="dot" class="dot"></span> <span id="devAddr">—</span></div>
+  <div class="badges" id="badges"></div>
+</header>
+
+<div class="layout">
+
+  <!-- 左：参数 -->
+  <div>
+    <div class="card">
+      <div class="card-head">
+        参数
+        <span class="hint" id="paramCount">—</span>
+        <div class="toolbar" style="margin-left:auto">
+          <input class="search" id="search" placeholder="搜参数名，如 eye / breath / angle">
+          <button id="readback" title="经 adb 读设备上每个参数的当前值">从设备回读</button>
+          <button id="resetAll" class="danger">全部松手</button>
+        </div>
+      </div>
+      <div id="groups"></div>
+    </div>
+  </div>
+
+  <!-- 右：模型 / 摆台 / 姿势 / 表情 / 动作 / 命令台 -->
+  <div>
+    <div class="card">
+      <div class="card-head">模型 <span class="hint" id="modelHint">—</span></div>
+      <div class="card-body">
+        <div class="chips" id="models"></div>
+        <div class="note plain" style="margin-top:10px">
+          换模型要重新解析 moc3、重传贴图：大肥鱼约 3.5 秒，miku 两个约 8.6 秒，这段屏上是空的。
+          换完记在设备里，重启还是这个。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">位置与大小 <span class="hint">每个模型各存一份</span></div>
+      <div class="card-body">
+        <div class="preview" id="previewWrap">
+          <img id="preview" alt="设备画面">
+          <div class="ph" id="previewPh">预览要 adb 连着设备；点「刷新预览」试试</div>
+          <span class="tagline" id="previewTag">—</span>
+        </div>
+        <div class="srow">
+          <span class="sname">左右</span>
+          <input type="range" id="fitX" min="-1" max="1" step="0.005" value="0">
+          <span class="sval" id="fitXv">0.000</span>
+        </div>
+        <div class="srow">
+          <span class="sname">上下</span>
+          <input type="range" id="fitY" min="-1" max="1" step="0.005" value="0">
+          <span class="sval" id="fitYv">0.000</span>
+        </div>
+        <div class="srow">
+          <span class="sname">缩放</span>
+          <input type="range" id="fitS" min="0.4" max="2" step="0.01" value="1">
+          <span class="sval" id="fitSv">1.00</span>
+        </div>
+        <div class="chips light-presets">
+          <button class="chip" id="fitCenter">水平居中</button>
+          <button class="chip" id="fitReset">恢复默认</button>
+          <button class="chip" id="fitShot">刷新预览</button>
+          <label class="chip"><input type="checkbox" id="fitLive" checked>实时预览</label>
+        </div>
+        <div class="note plain" style="margin-top:10px">
+          预览图上直接拖也能挪。改动立即生效，并且<b>自动存到当前模型名下</b> —— 换到别的模型再用回来，位置还是这个。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">副屏 · 视频 <span class="hint" id="videoHint">没在播</span></div>
+      <div class="card-body">
+        <div class="chips">
+          <label class="chip" style="cursor:pointer">
+            <input type="file" id="videoFile" accept="video/*" style="display:none">选择视频…
+          </label>
+          <button class="chip" id="videoUpload" disabled>上传并播放</button>
+          <button class="chip" id="videoStop">回大肥鱼</button>
+        </div>
+        <div class="srow" style="margin-top:8px">
+          <span class="sname">已存</span>
+          <span class="hint" id="videoStore" style="flex:1;font-size:12.5px;color:var(--muted)">读取中…</span>
+          <button class="chip" id="videoRefresh">刷新</button>
+        </div>
+        <div class="vlist" id="videoList"></div>
+        <div class="chips" id="videoListFoot" style="display:none">
+          <button class="chip" id="videoClean">清空全部</button>
+        </div>
+        <div class="srow">
+          <span class="sname">地址</span>
+          <input type="text" id="videoUrl" placeholder="/sdcard/amber/video/a.mp4 或 http://…/a.mp4"
+                 style="flex:1;min-width:0;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)">
+        </div>
+        <div class="chips">
+          <button class="chip" id="videoPlayUrl">按地址播放</button>
+        </div>
+        <div class="srow">
+          <span class="sname">抠像</span>
+          <select id="videoKey" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)">
+            <option value="none">不抠（画面外的留白仍然是透明的）</option>
+            <option value="green">纯绿背景</option>
+            <option value="blue">纯蓝背景</option>
+            <option value="black">纯黑背景</option>
+          </select>
+        </div>
+        <div class="srow">
+          <span class="sname">阈值</span>
+          <input type="range" id="videoThr" min="0.05" max="0.95" step="0.01" value="0.30">
+          <span class="sval" id="videoThrv">0.30</span>
+        </div>
+        <div class="note plain" style="margin-top:10px">
+          视频是画在<b>同一块 GL 画布</b>上的，所以背景能透出背后的实体灯带、镜像和模型一致。
+          切到副屏只要一帧，模型不重载。<br>
+          想让她「浮在舞台上」就把跳舞视频渲成<b>纯绿背景</b>再打开抠像；
+          不抠的时候只有视频画面外的留白是透明的。<br>
+          设备上<b>按顶部任意键</b>（音量键除外）也能切回大肥鱼。建议 720p 以内，1080p 也能放但更吃内存。<br>
+          上传的视频会<b>一直留在设备上</b>（同名覆盖），下面的清单可以随时删单个或清空；
+          删正在播的那一段会先自动切回大肥鱼。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">快捷姿势</div>
+      <div class="card-body">
+        <div class="poses" id="poses"></div>
+        <div class="note" style="margin-top:12px">
+          <b>set 是「按住」</b>：不发 <code>clear</code> 就一直保持。<br>
+          一次性的小动作要用 <code>anim</code>（轨道播完自动丢）。半睁眼卡死就是这么来的。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">表情 <span class="hint">exp 名 1 / 0</span></div>
+      <div class="card-body"><div class="chips" id="expressions"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">动作 <span class="hint">点一下播一遍，橙色的 7 个是大幅度版</span></div>
+      <div class="card-body"><div class="chips" id="motions"></div>
+        <div class="note plain">上一段没播完就点下一个，会直接打断（抢占），不会两个叠着。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">道具切换 <span class="hint">不是动作，单点基本看不出</span></div>
+      <div class="card-body"><div class="chips" id="props"></div>
+        <div class="note">这批驱动的是部件开关（<code>Param36/39~43</code>、<code>Movement1~3</code>、<code>Param56~62</code>），
+          得先开对应表情（竖食指 / 狗尾草 / 脱捕）才看得见。单独点等于空跑一次 1 秒的淡入淡出。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">外观 · 灯光与声音 <span class="hint">立即生效，写进设备</span></div>
+      <div class="card-body">
+        <div class="srow">
+          <span class="sname">舞台灯带</span>
+          <input type="range" id="lightSlider" min="0" max="100" step="1" value="65">
+          <span class="sval" id="lightVal">65%</span>
+        </div>
+        <div class="srow">
+          <span class="sname">屏幕背光</span>
+          <input type="range" id="backSlider" min="5" max="100" step="1" value="100">
+          <span class="sval" id="backVal">100%</span>
+        </div>
+        <div class="srow">
+          <span class="sname">说话音量</span>
+          <input type="range" id="volSlider" min="0" max="100" step="1" value="100">
+          <span class="sval" id="volVal">100%</span>
+        </div>
+        <div class="chips light-presets">
+          <button class="chip" data-light="0">全暗</button>
+          <button class="chip" data-light="35">微光</button>
+          <button class="chip" data-light="65">默认</button>
+          <button class="chip" data-light="100">全亮</button>
+        </div>
+        <div class="chips">
+          <button class="chip" id="btnOverlayOn">显示字幕</button>
+          <button class="chip" id="btnOverlayOff">隐藏字幕</button>
+          <button class="chip" id="btnScreenOn">亮屏</button>
+          <button class="chip" id="btnScreenOff">熄屏</button>
+        </div>
+        <div class="note plain">灯带是整体缩放：待机呼吸、在听荡开、说话随电平，都乘这个比例。
+          音量改的是 TTS 播放增益（和顶部音量键同一个值）。字幕层只影响那行灰字，
+          用来分辨「这块像素是谁画的」。背光最低 5%，调到 0 就没法操作了。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">行为设置 <span class="hint">改完立即生效，拔电不丢</span></div>
+      <div class="card-body">
+        <div class="set-sec">作息 · 到点熄屏</div>
+        <label class="srow">
+          <span class="sname">自动熄屏</span>
+          <input type="checkbox" class="ck" id="setSleepOn">
+        </label>
+        <div class="sdesc">熄屏后只有喊唤醒词能叫醒</div>
+        <div class="srow">
+          <span class="sname">从</span>
+          <input type="time" id="setSleepStart" value="00:00">
+          <span class="sname" style="width:auto">到</span>
+          <input type="time" id="setSleepEnd" value="08:00">
+        </div>
+
+        <div class="set-sec">定时播报</div>
+        <label class="srow">
+          <span class="sname">启用</span>
+          <input type="checkbox" class="ck" id="setSchedOn">
+        </label>
+        <div class="sdesc">到点主动说一句固定台词</div>
+        <div class="srow">
+          <span class="sname">早上</span>
+          <input type="time" id="setSchedMorning" value="08:40">
+          <span class="sname" style="width:auto">晚上</span>
+          <input type="time" id="setSchedNight" value="23:59">
+        </div>
+
+        <div class="set-sec">在场搭话 · 人一直待旁边时主动理你</div>
+        <label class="srow">
+          <span class="sname">启用</span>
+          <input type="checkbox" class="ck" id="setPresenceOn">
+        </label>
+        <div class="sdesc">只影响「主动搭话」，不影响走近唤醒</div>
+        <div class="srow">
+          <span class="sname">停留</span>
+          <input type="number" id="setPresenceAfter" min="1" max="240" step="1" value="5">
+          <span class="sval">分钟</span>
+        </div>
+        <div class="srow">
+          <span class="sname">冷却</span>
+          <input type="number" id="setPresenceCool" min="1" max="1440" step="1" value="50">
+          <span class="sval">分钟</span>
+        </div>
+        <div class="srow">
+          <span class="sname">时段</span>
+          <input type="number" id="setPresenceH1" min="0" max="23" step="1" value="10">
+          <span class="sname" style="width:auto">到</span>
+          <input type="number" id="setPresenceH2" min="0" max="23" step="1" value="23">
+          <span class="sval">点</span>
+        </div>
+
+        <div class="set-sec">交互</div>
+        <div class="srow">
+          <span class="sname">接话窗口</span>
+          <input type="number" id="setListen" min="3" max="120" step="1" value="15">
+          <span class="sval">秒</span>
+        </div>
+        <div class="sdesc">这么久没说话就结束本轮连续对话</div>
+        <label class="srow">
+          <span class="sname">视线跟随</span>
+          <input type="checkbox" class="ck" id="setGazeOn">
+        </label>
+        <div class="sdesc">说话/听的时候眼睛跟着人转</div>
+
+        <div class="chips" style="margin-top:10px">
+          <button class="chip" id="btnSettingsReload">从设备重读</button>
+          <button class="chip danger" id="btnSettingsReset">恢复默认设置</button>
+        </div>
+        <div class="note plain">这些都是「不该为了改一个数就重新编 APK」的项。默认值和固件里的原始常量一致；
+          点「恢复默认」会清掉设备上的记录。唤醒词、TTS 音色、QQ 触发概率在 AstrBot 的「平台 → 琥珀音箱」里改，
+          不在这里。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">功能与状态 <span class="hint">她身上现在有什么</span></div>
+      <div class="card-body">
+        <div class="kv">
+          <span>固件 <b id="ovContract">—</b></span>
+          <span>模型 <b id="ovModel">—</b></span>
+          <span>帧率 <b id="ovFps">—</b></span>
+          <span>灯带 <b id="ovLight">—</b></span>
+          <span>时钟 <b id="ovClock">—</b></span>
+          <span>画面 <b id="ovContent">—</b></span>
+          <span>端口 <b id="ovPort">—</b></span>
+          <span>adb <b id="ovAdb">—</b></span>
+        </div>
+        <div class="note plain" style="margin-top:8px">
+          <b>能力清单</b>：语音唤醒（拼音容错）· 连续对话 · 走近唤醒（PIR）· 在场搭话 · 视线跟随 ·
+          待机动作/呼吸 · 灯带四模式 · 定时播报 · 作息熄屏 · 副屏放视频（绿幕抠像）· 摄像头「眼睛」工具 ·
+          三层看门狗自愈 · 开机自动对时。<br>
+          <b>改不动的在哪儿</b>：唤醒词/TTS 音色/语音概率 → AstrBot 平台配置；模型与动作 →
+          <code>assets/&lt;模型&gt;/index.txt</code> 与 <code>tools/gen_big_motions.py</code>；
+          口型映射 → <code>src/.../cue/WordTable.java</code>。详见 <code>docs/SETTINGS.md</code>。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">连接与运维 <span class="hint">换设备 IP 不用改代码</span></div>
+      <div class="card-body">
+        <div class="srow">
+          <span class="sname">设备地址</span>
+          <input type="text" id="devInput" placeholder="192.168.1.20:8788">
+          <button class="chip" id="devSave">保存并连接</button>
+        </div>
+        <div class="chips">
+          <button class="chip" id="btnClockNow">用电脑时间对时</button>
+          <button class="chip" id="btnRebootApp">重启应用</button>
+          <button class="chip" id="btnKillServer" title="只关掉本机这个网页服务">关掉调参台</button>
+        </div>
+        <div class="note plain">地址存在 <code>tools/model_console/console.json</code>，也可以先用命令行参数
+          <code>python server.py 192.168.1.20:8788</code> 覆盖。改完会立即切过去；对时传的是毫秒，
+          设备会拒收 2020 年以前的时间。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">命令台 <span class="hint">原生命令直通</span></div>
+      <div class="card-body">
+        <input class="console-input" id="cmdInput" placeholder="set ParamBreath 0.5   回车发送">
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        导出改动
+        <button id="copyBtn" style="margin-left:auto">复制</button>
+      </div>
+      <div class="card-body">
+        <textarea id="export" readonly placeholder="拖动参数后，这里会生成可粘进脚本的命令块"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="foot">参数表来自 <code>out/params.txt</code>（设备 diag params 的 dump），表情与动作来自 <code>assets/model/index.txt</code></div>
+
+<script>
+'use strict';
+
+/* ========== 分组规则 ========== */
+// 物理输出：写进去会被物理模拟覆盖回 0，改上游输入才有效
+const PHYS_OUT = new Set(['ParamAngleX', 'ParamAngleY', 'ParamAngleZ', 'LArm', 'RArm',
+  'LForearm', 'RForearm', 'ShoulderY']);
+
+const GROUPS = [
+  { key: 'idle', title: '待机驱动', tag: '推荐', open: true,
+    // 这批才是待机真正驱动的物理输入（AngleX/Y/Z 上游），改了立刻能看到身体晃动
+    test: id => ['AngleX', 'AngleY', 'AngleZ', 'PositionX', 'PositionY', 'PositionZ',
+      'LeanInput', 'ParamBreath'].includes(id) },
+  { key: 'head', title: '头颈', tag: '', open: true,
+    test: id => /^(ParamAngle[XYZ]|ParamBodyAngle[XYZ]|ParamBodyAngleR[XYZ]|FaceAngle[XYZ])$/.test(id) },
+  { key: 'eye', title: '眼', tag: '', open: true,
+    test: id => /^(ParamEye[LR]Open|ParamEyeBall[XY]|Pupil[XY]|[LR]EyeSquint|Startwinkle.*|EyeSmile)$/.test(id) },
+  { key: 'brow', title: '眉', tag: '', open: false,
+    test: id => /^ParamBrow[LR]/.test(id) },
+  { key: 'mouth', title: '口', tag: '', open: false,
+    test: id => /^(ParamMouthForm|ParamMouthOpenY|JawOpen|TongueOut)$/.test(id) },
+  { key: 'limb', title: '身 / 腿 / 臂', tag: '多为物理输出', tagGray: true, open: false,
+    test: id => /^(Hip|LEG|LArm|RArm|LForearm|RForearm|Shoulder|ParamHip)/.test(id) },
+  { key: 'fx', title: '光效 / 特效', tag: '', open: false,
+    test: id => /(Glow|Kira|Gem|Shock|Param_Angle_Rotation)/.test(id) },
+  { key: 'other', title: '其它（服装 / 开关 / 杂项）', tag: '', open: false,
+    test: () => true },
+];
+
+/* ========== 副屏（视频） ==========
+   设备端是同一块 GL 画布换画一个人：背景透明、镜像和模型一致、切回来不用重载模型。
+   这里只负责「把视频送到设备上」和「切回去」两件事。
+   注意：上传走的是 /api/video/upload 的原始 body（不是 JSON），几十上百 MB，
+   server.py 那边是边收边转发，不落内存。 */
+let videoPick = null;
+
+function bindVideo() {
+  const pick = $('#videoFile'), up = $('#videoUpload');
+  pick.addEventListener('change', e => {
+    videoPick = (e.target.files || [])[0] || null;
+    up.disabled = !videoPick;
+    up.textContent = videoPick ? ('上传并播放（' + (videoPick.size / 1048576).toFixed(1) + 'MB）') : '上传并播放';
+  });
+
+  up.addEventListener('click', () => {
+    if (!videoPick) return;
+    up.disabled = true;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/video/upload?name=' + encodeURIComponent(videoPick.name));
+    xhr.upload.onprogress = ev => {
+      if (ev.lengthComputable) {
+        up.textContent = '上传中 ' + Math.round(ev.loaded * 100 / ev.total) + '%';
+      }
+    };
+    xhr.onload = () => {
+      up.disabled = false;
+      let r = {};
+      try { r = JSON.parse(xhr.responseText); } catch (e) { /* 下面按失败处理 */ }
+      if (xhr.status === 200 && r.ok) {
+        log('副屏开播：' + (r.file || videoPick.name) + '（' + Math.round((r.bytes || 0) / 1048576) + 'MB）');
+        $('#videoHint').textContent = '播放中：' + (r.file || videoPick.name);
+        $('#videoUrl').value = '/sdcard/amber/video/' + (r.file || videoPick.name);
+      } else {
+        log('上传失败：' + (r.error || ('HTTP ' + xhr.status)), true);
+      }
+      up.textContent = '上传并播放';
+      setTimeout(() => { refreshPreview(); loadVideoList(); }, 600);
+    };
+    xhr.onerror = () => { up.disabled = false; up.textContent = '上传并播放'; log('上传出错（网络断了？）', true); };
+    xhr.send(videoPick);
+  });
+
+  $('#videoPlayUrl').addEventListener('click', async () => {
+    const url = $('#videoUrl').value.trim();
+    if (!url) return;
+    try {
+      await api('/api/control', { action: 'video', value: url });
+      log('副屏：' + url);
+      setTimeout(refreshPreview, 800);
+    } catch (e) { log('开播失败：' + e.message, true); }
+  });
+
+  $('#videoStop').addEventListener('click', async () => {
+    try {
+      await api('/api/control', { action: 'video', value: 'stop' });
+      log('切回大肥鱼');
+      $('#videoHint').textContent = '没在播';
+      setTimeout(refreshPreview, 500);
+    } catch (e) { log('切回失败：' + e.message, true); }
+  });
+
+  const key = $('#videoKey'), thr = $('#videoThr'), thrv = $('#videoThrv');
+  const pushKey = () => {
+    const v = key.value === 'none' ? 'none' : (key.value + ':' + parseFloat(thr.value).toFixed(2));
+    thrv.textContent = parseFloat(thr.value).toFixed(2);
+    pushControl('videokey', v);
+    log('抠像：' + v);
+  };
+  key.addEventListener('change', pushKey);
+  thr.addEventListener('input', () => { thrv.textContent = parseFloat(thr.value).toFixed(2); });
+  thr.addEventListener('change', pushKey);
+
+  /* ---- 已存视频：列出来，能删单个、能一键清空 ---- */
+  $('#videoRefresh').addEventListener('click', () => loadVideoList());
+  $('#videoClean').addEventListener('click', async () => {
+    const count = $('#videoList').children.length;
+    if (!count) return;
+    if (!confirm('删掉设备上的 ' + count + ' 个视频？删了就找不回来了。\n（正在播的那一段会先停下）')) return;
+    try {
+      const r = await api('/api/video/clean', {});
+      log('清空视频：删 ' + (r.removed || 0) + ' 个，释放 ' + fmtSize(r.freed || 0), !r.ok);
+    } catch (e) { log('清空失败：' + e.message, true); }
+    loadVideoList();
+  });
+  loadVideoList();
+}
+
+/** 字节数 → 人能读的大小。 */
+function fmtSize(n) {
+  n = n || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+  if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+  return (n / 1073741824).toFixed(2) + ' GB';
+}
+
+/** 读设备上 /sdcard/amber/video/ 的清单并渲染。删完、传完、开播后都调一次。 */
+async function loadVideoList() {
+  const box = $('#videoList'), store = $('#videoStore'), foot = $('#videoListFoot');
+  try {
+    const r = await api('/api/video/list');
+    if (!r.ok) throw new Error(r.error || '设备返回失败');
+    const files = r.files || [];
+    store.textContent = files.length
+      ? (files.length + ' 个 · 共 ' + fmtSize(r.bytes) + ' · ' + (r.dir || ''))
+      : '还没有上传过视频（上传的视频会一直留在设备上）';
+    box.innerHTML = '';
+    const playing = ($('#videoUrl').value || '').split('/').pop();
+    files.forEach(f => {
+      const row = document.createElement('div');
+      row.className = 'vitem' + (f.name === playing ? ' playing' : '');
+      row.innerHTML =
+        '<span class="vname" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' +
+        '<span class="vsize">' + fmtSize(f.bytes) + '</span>' +
+        '<button class="vplay" title="播这一段">播放</button>' +
+        '<button class="vdel" title="从设备上删掉">删除</button>';
+      row.querySelector('.vplay').addEventListener('click', async () => {
+        try {
+          await api('/api/control', { action: 'video', value: (r.dir || '/sdcard/amber/video') + '/' + f.name });
+          log('副屏：' + f.name);
+          setTimeout(() => { refreshPreview(); loadVideoList(); }, 700);
+        } catch (e) { log('播放失败：' + e.message, true); }
+      });
+      row.querySelector('.vdel').addEventListener('click', async () => {
+        if (!confirm('删掉 ' + f.name + '（' + fmtSize(f.bytes) + '）？')) return;
+        try {
+          const d = await api('/api/video/delete', { name: f.name });
+          log('已删除 ' + f.name + '，释放 ' + fmtSize(d.freed || 0), !d.ok);
+        } catch (e) { log('删除失败：' + e.message, true); }
+        loadVideoList();
+      });
+      box.appendChild(row);
+    });
+    foot.style.display = files.length ? '' : 'none';
+  } catch (e) {
+    // 设备离线时别让这张卡片看起来像坏了：清单读不到，上传按钮照旧能试
+    store.textContent = '读不到设备上的清单：' + e.message;
+    box.innerHTML = '';
+    foot.style.display = 'none';
+  }
+}
+
+/** 把 /state 里的副屏状态填到卡片标题上。 */
+function fillVideo(s) {
+  const hint = $('#videoHint');
+  if (!s) return;
+  if (s.mode === 'video') {
+    const pos = (s.video_pos || 0) / 1000, dur = (s.video_dur || 0) / 1000;
+    const name = (s.video_src || '').split('/').pop();
+    hint.textContent = '播放中：' + name +
+      (dur ? '（' + pos.toFixed(1) + '/' + dur.toFixed(1) + 's）' : '') +
+      (s.video_key && s.video_key !== 'none' ? ' 抠像 ' + s.video_key : '');
+    if (s.video_src && !$('#videoUrl').value) $('#videoUrl').value = s.video_src;
+  } else {
+    hint.textContent = '没在播';
+  }
+}
+
+/* ========== 快捷姿势 ========== */
+const POSES = [
+  { name: '恢复自然', sub: 'clearall', cmds: ['clearall'] },
+  { name: '走近看你', sub: '抬头 + 眯一下眼',
+    cmds: ['set FaceAngleY 8',
+      'anim ParamEyeROpen 0:-0.6 1.6:-0.6 2.4:0',
+      'anim ParamEyeLOpen 0:-0.6 1.6:-0.6 2.4:0'] },
+  { name: '犯困', sub: '半睁 + 低头',
+    cmds: ['set FaceAngleY -6', 'set ParamEyeROpen 0.4', 'set ParamEyeLOpen 0.4', 'set ParamMouthOpenY 0.15'] },
+  { name: '高兴', sub: '眯眼笑 + 晃头',
+    cmds: ['set EyeSmile 1', 'set ParamMouthForm 0.8', 'anim FaceAngleZ 0:4 .6:-4 1.2:4 1.8:0'] },
+  { name: '惊讶', sub: '瞪眼 + 张嘴',
+    cmds: ['set ParamEyeLOpen 1.3', 'set ParamEyeROpen 1.3', 'set JawOpen 0.7',
+      'set ParamBrowLY 0.7', 'set ParamBrowRY 0.7'] },
+  { name: '害羞', sub: '脸红 + 歪头',
+    cmds: ['exp 脸红 1', 'set FaceAngleZ 6', 'set ParamEyeBallY -0.5', 'set ParamMouthForm 0.4'] },
+  { name: '生气', sub: '皱眉 + 撇嘴',
+    cmds: ['set EyeSmile 0', 'set ParamBrowLY -0.7', 'set ParamBrowRY -0.7', 'set ParamMouthForm -0.6'] },
+  { name: '深呼吸', sub: 'ParamBreath 0.6',
+    cmds: ['set ParamBreath 0.6', 'set AngleX 6'] },
+];
+
+/* ========== 状态 ========== */
+const S = {
+  params: [],            // [{id,min,def,max,cur}]
+  dirty: new Map(),      // id -> 当前改动值
+  expOn: new Set(),
+  pending: new Map(),    // id -> value，待批量下发
+  timer: null,
+  groupsEl: {},
+};
+
+const $ = s => document.querySelector(s);
+const fmt = v => (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2));
+const stepOf = p => ((p.max - p.min) >= 20 ? 0.1 : 0.01);
+
+/* ========== 通信 ========== */
+async function api(path, body) {
+  const opt = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : {};
+  const r = await fetch(path, opt);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function log(text, isErr) {
+  const el = $('#log');
+  const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const div = document.createElement('div');
+  div.innerHTML = '<span class="t">' + now + '</span> ' +
+    (isErr ? '<span class="err">' : '<span>') + escapeHtml(text) + '</span>';
+  el.appendChild(div);
+  while (el.children.length > 120) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function send(commands) {
+  const list = (Array.isArray(commands) ? commands : [commands]).filter(Boolean);
+  if (!list.length) return;
+  try {
+    const r = await api('/api/cmd', { commands: list });
+    list.forEach((c, i) => {
+      const res = r.results[i];
+      log((res && res.ok === false ? '✗ ' : '> ') + c, !(res && res.ok !== false));
+    });
+  } catch (e) {
+    log('发送失败：' + e.message, true);
+  }
+}
+
+/* 滑块节流：同一参数只留最新值，60ms 合并成一次请求 */
+function queueSet(id, value) {
+  S.pending.set(id, value);
+  if (S.timer) return;
+  S.timer = setTimeout(flush, 60);
+}
+function flush() {
+  S.timer = null;
+  if (!S.pending.size) return;
+  const cmds = [...S.pending.entries()].map(([id, v]) => 'set ' + id + ' ' + fmt(v));
+  S.pending.clear();
+  api('/api/cmd', { commands: cmds }).then(r => {
+    r.results.forEach((x, i) => { if (!x.ok) log('✗ ' + cmds[i] + ' — ' + (x.error || ''), true); });
+  }).catch(e => log('批量下发失败：' + e.message, true));
+}
+
+/* ========== 参数渲染 ========== */
+function buildGroups() {
+  const host = $('#groups');
+  host.innerHTML = '';
+  S.groupsEl = {};
+
+  const assigned = new Set();   // 一组只归一个地方，否则「其它」会把全表再列一遍
+
+  GROUPS.forEach(g => {
+    const items = S.params.filter(p => !assigned.has(p.id) && g.test(p.id));
+    items.forEach(p => assigned.add(p.id));
+    if (!items.length) return;
+
+    const box = document.createElement('div');
+    box.className = 'group' + (g.open ? '' : ' closed');
+
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    head.innerHTML = '<span class="title">' + g.title + '</span>' +
+      (g.tag ? '<span class="tag' + (g.tagGray ? ' gray' : '') + '">' + g.tag + '</span>' : '') +
+      '<span class="count">' + items.length + '</span>' +
+      '<span class="chev">▾</span>';
+    head.addEventListener('click', () => box.classList.toggle('closed'));
+
+    const body = document.createElement('div');
+    body.className = 'group-body';
+
+    items.forEach(p => body.appendChild(renderParam(p)));
+
+    box.appendChild(head);
+    box.appendChild(body);
+    host.appendChild(box);
+    S.groupsEl[g.key] = { box, body, items };
+  });
+}
+
+function renderParam(p) {
+  const el = document.createElement('div');
+  el.className = 'p' + (PHYS_OUT.has(p.id) ? ' phys' : '');
+  el.dataset.id = p.id;
+
+  const min = p.min, max = p.max;
+  const step = stepOf(p);
+
+  el.innerHTML =
+    '<div class="p-row">' +
+      '<span class="p-name" title="' + p.id + '">' + p.id + '</span>' +
+      '<input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + p.cur + '">' +
+      '<span class="p-val">' + fmt(p.cur) + '</span>' +
+      '<span class="p-ops">' +
+        '<button data-op="def" title="回到默认 ' + fmt(p.def) + '">默认</button>' +
+        '<button data-op="zero" title="设成 0">零</button>' +
+        '<button data-op="clear" title="松开这个按住值">松</button>' +
+      '</span>' +
+    '</div>';
+
+  const range = el.querySelector('input');
+  const valEl = el.querySelector('.p-val');
+
+  const apply = (v, remember) => {
+    v = Math.min(max, Math.max(min, v));
+    range.value = v;
+    valEl.textContent = fmt(v);
+    if (remember) S.dirty.set(p.id, v); else S.dirty.delete(p.id);
+    el.classList.toggle('dirty', S.dirty.has(p.id));
+    updateExport();
+  };
+
+  range.addEventListener('input', () => {
+    const v = parseFloat(range.value);
+    apply(v, true);
+    queueSet(p.id, v);
+  });
+
+  el.querySelectorAll('.p-ops button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const op = btn.dataset.op;
+      if (op === 'clear') {
+        S.dirty.delete(p.id);
+        el.classList.remove('dirty');
+        updateExport();
+        apply(p.def, false);
+        await send('clear ' + p.id);
+        return;
+      }
+      const v = op === 'def' ? p.def : 0;
+      apply(v, true);
+      queueSet(p.id, v);
+    });
+  });
+
+  return el;
+}
+
+function updateExport() {
+  const lines = [...S.dirty.entries()].map(([id, v]) => 'set ' + id + ' ' + fmt(v));
+  $('#export').value = lines.join('\n');
+}
+
+/* ========== 右栏按钮 ========== */
+function buildPoses() {
+  const host = $('#poses');
+  POSES.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'pose';
+    b.innerHTML = '<b>' + p.name + '</b><small>' + p.sub + '</small>';
+    b.addEventListener('click', () => send(p.cmds));
+    host.appendChild(b);
+  });
+}
+
+function buildExpressions(list) {
+  const host = $('#expressions');
+  list.forEach(name => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = name;
+    b.addEventListener('click', () => {
+      const on = !S.expOn.has(name);
+      if (on) S.expOn.add(name); else S.expOn.delete(name);
+      b.classList.toggle('on', on);
+      send('exp ' + name + ' ' + (on ? 1 : 0));
+    });
+    host.appendChild(b);
+  });
+}
+
+/* 这 7 个不是「动作」，是手部道具的开合过渡：m1~m5/m7 只驱动 Param36/39~43、
+   Movement1~3、Param56~62 这类部件开关（这些都不是物理输出，所以确实写进去了，
+   只是当前道具本来就在那个状态时看不出来），1 秒就结束；
+   m0(IDLE) 只驱动 Shock/SweatBurst 这些特效层参数，不碰头身体尾巴。
+   单独点它们画面上基本没变化——所以从「动作」里拆出去。
+   注：m6「脱捕」13 秒、24 条曲线，含 AngleX/Y/Z + 眼睑嘴型，是完整动作，留在动作组。 */
+const PROP_MOTIONS = ['IDLE', '举手切默认手', '狗尾草切回默认手', '狗尾草切换出来',
+  '竖手指切出来动画', '竖手指切回默认', '默认手切举手'];
+
+/* 2026-11-24 新做的 7 段大幅度动作（tools/gen_big_motions.py）。
+   老的那批 m8~m25 曲线幅度只有 6~19（量程 ±30），在「待机本来就在晃」的背景里
+   几乎看不出来——用户原话「打哈欠/伸懒腰/揉眼睛/拨头发都没效果」。
+   所以这里分两组：大幅度的放前面加底色，原版的折叠在后面并注明幅度小。 */
+const BIG_MOTIONS = ['蹲下看看', '蹦两下', '大伸懒腰', '左右大张望', '歪头杀', '鞠躬行礼', '转个圈'];
+
+function buildMotions(list) {
+  const props = list.filter(n => PROP_MOTIONS.indexOf(n) >= 0);
+  const big = list.filter(n => BIG_MOTIONS.indexOf(n) >= 0);
+  const old = list.filter(n => PROP_MOTIONS.indexOf(n) < 0 && BIG_MOTIONS.indexOf(n) < 0);
+  const host = $('#motions');
+  host.innerHTML = '';
+  const chip = (name, parent, cls) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (cls ? ' ' + cls : '');
+    b.textContent = name;
+    b.addEventListener('click', () => send('motion ' + name));
+    parent.appendChild(b);
+  };
+  big.forEach(n => chip(n, host, 'big'));
+  if (old.length) {
+    const h = document.createElement('div');
+    h.className = 'subhead';
+    h.textContent = '原版 · 幅度小（' + old.length + '），多半只是轻轻晃一下';
+    host.appendChild(h);
+    old.forEach(n => chip(n, host));
+  }
+  props.forEach(n => chip(n, $('#props')));
+}
+
+/* ========== 舞台灯光 ==========
+   设备侧已有 /control?action=light&value=0~100（灯带整体缩放）和
+   action=brightness&value=0~100（LCD 背光）。这里只做节流下发 + 状态回填。
+   注意别用 send()：那条路走的是 diag 原生命令，灯光是 /control 的独立 action。 */
+let lightInit = false;
+
+function pushControl(action, value) {
+  api('/api/control', { action: action, value: value })
+    .catch(e => log('下发失败：' + e.message, true));
+}
+
+function bindLight() {
+  const ls = $('#lightSlider'), lv = $('#lightVal');
+  const bs = $('#backSlider'), bv = $('#backVal');
+  const vs = $('#volSlider'), vv = $('#volVal');
+  let t1 = null, t2 = null, t3 = null;
+
+  ls.addEventListener('input', () => {
+    lv.textContent = ls.value + '%';
+    clearTimeout(t1);
+    t1 = setTimeout(() => pushControl('light', ls.value), 60);
+  });
+  bs.addEventListener('input', () => {
+    bv.textContent = bs.value + '%';
+    clearTimeout(t2);
+    t2 = setTimeout(() => pushControl('brightness', bs.value), 60);
+  });
+  vs.addEventListener('input', () => {
+    vv.textContent = vs.value + '%';
+    clearTimeout(t3);
+    t3 = setTimeout(() => pushControl('volume', vs.value), 80);
+  });
+
+  document.querySelectorAll('[data-light]').forEach(b => {
+    b.addEventListener('click', () => {
+      ls.value = b.dataset.light;
+      lv.textContent = b.dataset.light + '%';
+      pushControl('light', b.dataset.light);
+      log('舞台灯 ' + b.dataset.light + '%');
+    });
+  });
+
+  $('#btnOverlayOn').addEventListener('click', () => { pushControl('overlay', 'on'); log('字幕层：显示'); });
+  $('#btnOverlayOff').addEventListener('click', () => { pushControl('overlay', 'off'); log('字幕层：隐藏'); });
+  $('#btnScreenOn').addEventListener('click', () => { pushControl('display', 'on'); log('亮屏'); });
+  $('#btnScreenOff').addEventListener('click', () => { pushControl('display', 'off'); log('熄屏'); });
+
+  $('#btnClockNow').addEventListener('click', async () => {
+    try {
+      const r = await api('/api/clock', { epoch: Date.now() });
+      if (!r.ok) throw new Error(r.error || '设备拒收');
+      log('已对时：' + new Date().toLocaleString('zh-CN'));
+    } catch (e) { log('对时失败：' + e.message, true); }
+  });
+  $('#btnRebootApp').addEventListener('click', async () => {
+    if (!confirm('重启设备上的应用？（约 15 秒后恢复，期间 8788 不通）')) return;
+    try { await api('/api/control', { action: 'reboot', value: '' }); log('已发重启'); }
+    catch (e) { log('重启失败：' + e.message, true); }
+  });
+  $('#btnKillServer').addEventListener('click', async () => {
+    if (!confirm('关掉本机这个调参台网页服务？设备本身不受影响。')) return;
+    try { await api('/api/shutdown', {}); } catch (e) { /* 关掉了就没人回话 */ }
+    document.body.innerHTML = '<div style="padding:48px;font:14px/1.8 system-ui;color:#6b7280">' +
+      '调参台已关闭。要再用请双击 <code>start_console.cmd</code>。</div>';
+  });
+
+  $('#devSave').addEventListener('click', async () => {
+    const addr = $('#devInput').value.trim();
+    if (!addr) return;
+    try {
+      const r = await api('/api/config', { device: addr });
+      if (!r.ok) throw new Error(r.error || '地址不合法');
+      log('设备地址改为 ' + r.device);
+      location.reload();
+    } catch (e) { log('改地址失败：' + e.message, true); }
+  });
+}
+
+/** 只在第一次读到设备值时回填，之后不再覆盖（免得用户正在拖的时候被拽回去）。 */
+function fillLight(s) {
+  if (lightInit) return;
+  if (typeof s.light === 'number') {
+    const pct = Math.round(s.light * 100);
+    $('#lightSlider').value = pct;
+    $('#lightVal').textContent = pct + '%';
+  }
+  if (typeof s.backlight === 'number') {
+    const pct = Math.round(s.backlight * 100);
+    $('#backSlider').value = pct;
+    $('#backVal').textContent = pct + '%';
+  }
+  if (typeof s.volume === 'number') {
+    const pct = Math.round(s.volume * 100);
+    $('#volSlider').value = pct;
+    $('#volVal').textContent = pct + '%';
+  }
+  lightInit = true;
+}
+
+/* ========== 行为设置 ==========
+   设备端 /settings：作息、定时播报、在场搭话、接话窗口、视线跟随。
+   这些值写在设备的 SharedPreferences 里，拔电不丢；默认值和固件里的原始常量一致，
+   所以老用户升级后如果不碰这一栏，行为一点都不会变。 */
+let settingsInit = false;
+
+const fmtMin = m => String(Math.floor(m / 60)).padStart(2, '0') + ':'
+  + String(Math.round(m % 60)).padStart(2, '0');
+
+/** 把设备返回的设置摆到控件上。force=false 时只在第一次生效（别打断正在编辑的人）。 */
+function adoptSettings(s, force) {
+  if (!s || (settingsInit && !force)) return;
+  $('#setSleepOn').checked = !!s.sleep_on;
+  $('#setSleepStart').value = fmtMin(s.sleep_start);
+  $('#setSleepEnd').value = fmtMin(s.sleep_end);
+  $('#setSchedOn').checked = !!s.schedule_on;
+  $('#setSchedMorning').value = fmtMin(s.schedule_morning);
+  $('#setSchedNight').value = fmtMin(s.schedule_night);
+  $('#setPresenceOn').checked = !!s.presence_on;
+  $('#setPresenceAfter').value = Math.round(s.presence_after / 60);
+  $('#setPresenceCool').value = Math.round(s.presence_cool / 60);
+  $('#setPresenceH1').value = s.presence_hour_start;
+  $('#setPresenceH2').value = s.presence_hour_end;
+  $('#setListen').value = s.listen_sec;
+  $('#setGazeOn').checked = !!s.gaze_on;
+  settingsInit = true;
+}
+
+async function pushSetting(key, value) {
+  try {
+    const r = await api('/api/settings', { key: key, value: String(value) });
+    if (!r.ok) throw new Error(r.error || '设备拒绝了');
+    if (r.settings) adoptSettings(r.settings, true);
+    log('设置 ' + key + ' = ' + value);
+  } catch (e) {
+    log('设置失败：' + e.message, true);
+    reloadSettings(false);   // 控件回滚到设备上的真值，别让人以为改成功了
+  }
+}
+
+async function reloadSettings(verbose) {
+  try {
+    const r = await api('/api/settings');
+    if (!r.ok) throw new Error(r.error || '读不到');
+    adoptSettings(r.settings, true);
+    if (verbose) log('已从设备重读设置');
+  } catch (e) {
+    if (verbose) log('读设置失败：' + e.message, true);
+  }
+}
+
+function bindSettings() {
+  const bind = (id, key, get) => {
+    $('#' + id).addEventListener('change', () => pushSetting(key, get($('#' + id))));
+  };
+  bind('setSleepOn', 'sleep_on', el => el.checked);
+  bind('setSleepStart', 'sleep_start', el => el.value);
+  bind('setSleepEnd', 'sleep_end', el => el.value);
+  bind('setSchedOn', 'schedule_on', el => el.checked);
+  bind('setSchedMorning', 'schedule_morning', el => el.value);
+  bind('setSchedNight', 'schedule_night', el => el.value);
+  bind('setPresenceOn', 'presence_on', el => el.checked);
+  bind('setPresenceAfter', 'presence_after', el => Math.round(el.value * 60));
+  bind('setPresenceCool', 'presence_cool', el => Math.round(el.value * 60));
+  bind('setPresenceH1', 'presence_hour_start', el => el.value);
+  bind('setPresenceH2', 'presence_hour_end', el => el.value);
+  bind('setListen', 'listen_sec', el => el.value);
+  bind('setGazeOn', 'gaze_on', el => el.checked);
+
+  $('#btnSettingsReload').addEventListener('click', () => reloadSettings(true));
+  $('#btnSettingsReset').addEventListener('click', async () => {
+    if (!confirm('把设备上的行为设置全部恢复默认？（作息 00:00–08:00、搭话 5 分钟/冷却 50 分钟…）')) return;
+    await pushSetting('reset', '');
+  });
+}
+
+/* ---------- 功能与状态总览 ---------- */
+let fpsPrev = null;
+function updateOverview(s) {
+  const set = (id, text) => { const el = $('#' + id); if (el) el.textContent = text; };
+  set('ovContract', s.contract || '—');
+  set('ovModel', (s.model || '').replace(/\/$/, '') || '—');
+  set('ovLight', s.light_mode || '—');
+  set('ovClock', !s.clock_ok ? '不可信'
+    : (s.clock_age < 0 ? '可信' : (s.clock_age < 120 ? '刚对过' : Math.round(s.clock_age / 60) + ' 分钟前')));
+  set('ovContent', typeof s.content_age === 'number' && s.content_age >= 0
+    ? s.content_age + ' 秒前有画面' : '未采样');
+
+  if (typeof s.frames === 'number' && s.frames >= 0) {
+    const now = Date.now();
+    if (!fpsPrev || now - fpsPrev.at > 900) {
+      if (fpsPrev) {
+        const n = s.frames - fpsPrev.frames;
+        const dt = (now - fpsPrev.at) / 1000;
+        if (n >= 0 && dt > 0) set('ovFps', (n / dt).toFixed(1) + ' fps');
+      }
+      fpsPrev = { frames: s.frames, at: now };
+    }
+  }
+}
+
+/* ========== 模型切换 ==========
+   设备侧 /control 的 action=model，value 认短名（dafeiyu / miku / sakura）也认目录名。
+   换模型会重新 prepare + createGl，几秒内屏是空的，所以这里只做「发出去 + 过一会儿对一次状态」。 */
+let modelList = [];
+let currentModel = '';
+/** 切换模型后的一小段时间内，不采信 /state 的 model 回声（设备还没换完）。 */
+let modelHoldUntil = 0;
+
+function renderModels(list, current) {
+  modelList = list || [];
+  currentModel = current || '';
+  const host = $('#models');
+  host.innerHTML = '';
+  modelList.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (m.dir === currentModel ? ' on' : '');
+    b.textContent = m.title || m.name;
+    b.title = m.dir + (m.profile ? '  (' + m.profile + ')' : '');
+    b.addEventListener('click', () => switchModel(m.dir, m.title || m.name));
+    host.appendChild(b);
+  });
+  markModel(currentModel);
+}
+
+function markModel(dir) {
+  currentModel = dir || currentModel;
+  document.querySelectorAll('#models .chip').forEach((b, i) => {
+    const m = modelList[i];
+    if (m) b.classList.toggle('on', m.dir === currentModel);
+  });
+  const cur = modelList.find(m => m.dir === currentModel);
+  $('#modelHint').textContent = cur ? (cur.title + ' · ' + cur.dir) : (currentModel || '未知');
+}
+
+async function switchModel(dir, title) {
+  log('切换模型 -> ' + (title || dir));
+  try {
+    const r = await api('/api/control', { action: 'model', value: dir });
+    if (r && r.ok === false) { log('设备拒绝：' + (r.error || '未知'), true); return; }
+  } catch (e) {
+    log('切换失败：' + e.message, true);
+    return;
+  }
+  markModel(dir);
+  modelHoldUntil = Date.now() + 3000;
+  // 解析 + 建纹理 3.5~9 秒。等两次：一次拿新模型的位置，一次刷预览。
+  setTimeout(syncFromDevice, 2200);
+  setTimeout(() => { syncFromDevice(); refreshPreview(); }, 7000);
+}
+
+async function loadModels() {
+  try {
+    const r = await api('/api/models');
+    renderModels(r.models || [], r.current || '');
+  } catch (e) {
+    log('读模型列表失败：' + e.message, true);
+  }
+}
+
+/* ========== 摆台（位置 / 缩放） ==========
+   设备侧：{"action":"fit","value":"x,y,scale"}，单位是 NDC（1 = 半个屏宽/高）。
+   每改一次就下发一次，设备自己按当前模型写进 SharedPreferences ——
+   所以「保存」不需要按钮，停下来就是存好了。 */
+const FIT = { x: 0, y: 0, s: 1, timer: null, lastEdit: 0, dragging: false };
+
+function fitText() {
+  return FIT.x.toFixed(4) + ',' + FIT.y.toFixed(4) + ',' + FIT.s.toFixed(4);
+}
+
+function paintFit() {
+  $('#fitX').value = FIT.x;
+  $('#fitY').value = FIT.y;
+  $('#fitS').value = FIT.s;
+  $('#fitXv').textContent = FIT.x.toFixed(3);
+  $('#fitYv').textContent = FIT.y.toFixed(3);
+  $('#fitSv').textContent = FIT.s.toFixed(2);
+}
+
+/** 界面 -> 设备。节流 70ms：拖动时每个 move 都发会把设备的 HTTP 线程打满。 */
+function setFit(x, y, s, immediate) {
+  FIT.x = Math.max(-1, Math.min(1, x));
+  FIT.y = Math.max(-1, Math.min(1, y));
+  FIT.s = Math.max(0.4, Math.min(2, s));
+  paintFit();
+  FIT.lastEdit = Date.now();
+  clearTimeout(FIT.timer);
+  FIT.timer = setTimeout(() => pushControl('fit', fitText()), immediate ? 0 : 70);
+}
+
+/** 设备 -> 界面（轮询回填）。刚拖过就别回填，免得手还没松就被拽回去。 */
+function adoptFit(fit) {
+  if (FIT.dragging) return;
+  if (Date.now() - FIT.lastEdit < 1200) return;
+  if (!Array.isArray(fit) || fit.length !== 3) return;
+  const same = Math.abs(fit[0] - FIT.x) < 1e-4 && Math.abs(fit[1] - FIT.y) < 1e-4
+    && Math.abs(fit[2] - FIT.s) < 1e-4;
+  if (same) return;
+  FIT.x = fit[0]; FIT.y = fit[1]; FIT.s = fit[2];
+  paintFit();
+}
+
+function nudge(dx, dy) {
+  setFit(FIT.x + dx, FIT.y + dy, FIT.s);
+}
+
+function bindFit() {
+  $('#fitX').addEventListener('input', e => setFit(parseFloat(e.target.value), FIT.y, FIT.s));
+  $('#fitY').addEventListener('input', e => setFit(FIT.x, parseFloat(e.target.value), FIT.s));
+  $('#fitS').addEventListener('input', e => setFit(FIT.x, FIT.y, parseFloat(e.target.value)));
+  $('#fitCenter').addEventListener('click', () => setFit(0, FIT.y, FIT.s));
+  $('#fitReset').addEventListener('click', async () => {
+    // "reset" -> 设备删掉这个模型的记录、回到 defaultFit。
+    // （不能用空值：/control 的入口校验要求 value 非空，空着会 400。）
+    try {
+      await api('/api/control', { action: 'fit', value: 'reset' });
+      log('已恢复默认摆放');
+      setTimeout(syncFromDevice, 400);
+    } catch (e) { log('恢复默认失败：' + e.message, true); }
+  });
+  $('#fitShot').addEventListener('click', refreshPreview);
+  $('#fitLive').addEventListener('change', e => {
+    livePreview = e.target.checked;
+    if (livePreview) refreshPreview();
+  });
+
+  // 在预览图上拖动 = 直接挪模型。换算：整块画面横跨 NDC -1..1，
+  // 所以 1 像素 = 2 / 元素宽度（纵向用高度）。
+  const img = $('#preview');
+  let start = null;
+  img.addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    start = { x: e.clientX, y: e.clientY, fx: FIT.x, fy: FIT.y };
+    FIT.dragging = true;
+    try { img.setPointerCapture(e.pointerId); } catch (err) { /* 老浏览器没有也无所谓 */ }
+    e.preventDefault();
+  });
+  img.addEventListener('pointermove', e => {
+    if (!start) return;
+    const w = img.clientWidth || 1, h = img.clientHeight || 1;
+    const dx = (e.clientX - start.x) * 2 / w;
+    // 预览已经是「人看到的方向」（CSS 把截图上下翻回来了），所以往上拖 = y 变大
+    const dy = (e.clientY - start.y) * 2 / h;
+    setFit(start.fx + dx, start.fy - dy, FIT.s);
+    e.preventDefault();
+  });
+  const stop = () => {
+    if (!start) return;
+    start = null;
+    FIT.dragging = false;
+    pushControl('fit', fitText());
+    if (livePreview) refreshPreview();
+  };
+  img.addEventListener('pointerup', stop);
+  img.addEventListener('pointercancel', stop);
+}
+
+/* ========== 预览：adb 抓图 ========== */
+let livePreview = true;
+let previewBusy = false;
+
+function refreshPreview() {
+  if (previewBusy || !livePreview) return;
+  if (document.hidden) return;
+  previewBusy = true;
+  const url = '/api/snapshot?t=' + Date.now();
+  const probe = new Image();
+  probe.onload = () => {
+    previewBusy = false;
+    const img = $('#preview');
+    img.src = url;
+    img.style.display = '';
+    $('#previewPh').style.display = 'none';
+    const s = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    $('#previewTag').textContent = 'adb 抓图 ' + s;
+  };
+  probe.onerror = () => {
+    previewBusy = false;
+    $('#preview').style.display = 'none';
+    const ph = $('#previewPh');
+    ph.style.display = 'flex';
+    ph.textContent = '抓不到画面：adb 没连上设备？（adb connect 192.168.31.43:5555）';
+  };
+  probe.src = url;
+}
+
+/** 从 /state 里把模型和摆放拉回来（换模型后、复位后、开机时都用它）。 */
+async function syncFromDevice() {
+  try {
+    const s = await api('/api/state');
+    if (s.model && s.model !== currentModel) markModel(s.model);
+    adoptFit(s.fit);
+  } catch (e) { /* 离线就算了，轮询会再试 */ }
+}
+
+/* ========== 状态轮询 ========== */
+let wasOnline = null;
+async function pollState() {
+  try {
+    const s = await api('/api/state');
+    fillLight(s);
+    fillVideo(s);
+    adoptSettings(s.settings);
+    updateOverview(s);
+    // 模型和摆放：切换后的 3 秒内不采信设备回声（那时它还是旧模型 / 旧位置），
+    // 否则按钮上的高亮会先跳过去又跳回来。
+    if (s.model && Date.now() > modelHoldUntil) markModel(s.model);
+    adoptFit(s.fit);
+    $('#dot').className = 'dot on';
+    const b = [];
+    b.push(['phase', s.phase]);
+    if (s.screen) b.push(['screen', s.screen]);
+    b.push(['present', s.present ? '有人' : '没人']);
+    if (s.speaking) b.push(['speaking', '说话中']);
+    if (s.mic_muted) b.push(['mic', '静音']);
+    if (s.busy) b.push(['busy', '忙']);
+    if (s.posing) b.push(['posing', '摆姿势']);
+    $('#badges').innerHTML = b.map(([k, v], i) =>
+      '<span class="badge' + (i === 0 ? ' hi' : '') + '">' + k + ' · ' + escapeHtml(String(v)) + '</span>'
+    ).join('');
+    if (wasOnline === false) log('设备重新连上了');
+    wasOnline = true;
+  } catch (e) {
+    $('#dot').className = 'dot off';
+    $('#badges').innerHTML = '<span class="badge hi">设备离线</span>';
+    if (wasOnline === true) log('设备离线：' + e.message, true);
+    wasOnline = false;
+  }
+}
+
+/* ========== 从设备回读真实值 ========== */
+async function doReadback(silent) {
+  const btn = $('#readback');
+  if (!silent) { btn.disabled = true; btn.textContent = '回读中…'; }
+  try {
+    const r = await api('/api/readback');
+    if (!r.ok) throw new Error(r.error || '回读失败');
+    let n = 0;
+    S.params.forEach(p => {
+      const v = r.values[p.id];
+      if (v === undefined) return;
+      p.cur = v;
+      const el = document.querySelector('.p[data-id="' + p.id + '"]');
+      if (el) {
+        el.querySelector('input').value = v;
+        el.querySelector('.p-val').textContent = fmt(v);
+      }
+      n++;
+    });
+    S.dirty.clear();
+    document.querySelectorAll('.p.dirty').forEach(el => el.classList.remove('dirty'));
+    updateExport();
+    log('回读 ' + n + ' 个参数');
+  } catch (e) {
+    if (!silent) log('回读失败：' + e.message, true);
+  } finally {
+    if (!silent) { btn.disabled = false; btn.textContent = '从设备回读'; }
+  }
+}
+
+/* ========== 启动 ========== */
+async function boot() {
+  buildPoses();
+  bindLight();
+  bindSettings();
+  bindFit();
+  $('#search').addEventListener('input', filter);
+  $('#readback').addEventListener('click', () => doReadback(false));
+  $('#resetAll').addEventListener('click', async () => {
+    S.dirty.clear();
+    S.expOn.clear();
+    document.querySelectorAll('.p.dirty').forEach(el => el.classList.remove('dirty'));
+    document.querySelectorAll('.chip.on').forEach(el => el.classList.remove('on'));
+    updateExport();
+    await send('clearall');
+    setTimeout(() => doReadback(true), 450);   // 淡出要 0.15s，等它落到真实值再读
+  });
+  $('#copyBtn').addEventListener('click', async () => {
+    const t = $('#export');
+    if (!t.value) { log('还没有改动'); return; }
+    try {
+      await navigator.clipboard.writeText(t.value);
+      log('已复制 ' + t.value.split('\n').length + ' 行');
+    } catch (e) { t.select(); log('请手动复制（浏览器拒绝了剪贴板）', true); }
+  });
+  $('#cmdInput').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const v = e.target.value.trim();
+    if (!v) return;
+    e.target.value = '';
+    send(v);
+  });
+
+  api('/api/info').then(i => {
+    $('#devAddr').textContent = i.device;
+    $('#devInput').value = i.device;
+    $('#ovPort').textContent = i.port;
+    $('#ovAdb').textContent = i.adb_found ? '已找到' : '未找到（抓图/回读不可用）';
+    if (!i.online) log('设备 ' + i.device + ' 连不上：确认她开机、和电脑在同一网段', true);
+  }).catch(() => { /* 老版本 server 没有这个接口，不影响其它功能 */ });
+
+  try {
+    const m = await api('/api/model');
+    S.params = m.params || [];
+    $('#devAddr').textContent = m.device;
+    const nProp = m.motions.filter(x => PROP_MOTIONS.indexOf(x) >= 0).length;
+    $('#paramCount').textContent = S.params.length + ' 个 · 表情 ' + m.expressions.length
+      + ' · 动作 ' + (m.motions.length - nProp) + ' · 道具 ' + nProp;
+    if (!S.params.length) {
+      log('参数表是空的：先让设备 dump 一次 diag params 存到 out/params.txt', true);
+    }
+    buildGroups();
+    buildExpressions(m.expressions || []);
+    buildMotions(m.motions || []);
+  } catch (e) {
+    log('读模型元数据失败：' + e.message, true);
+  }
+
+  pollState();
+  setInterval(pollState, 2000);
+  bindVideo();
+  // 预览走 adb 抓图（约 0.4s 一张），只在标签页可见、且勾了「实时预览」时才跑。
+  setInterval(refreshPreview, 1800);
+  setTimeout(refreshPreview, 600);
+  setTimeout(() => doReadback(true), 900);   // 参数表是 dump 时的旧值，开机先对一次真值
+  loadModels();                              // 模型列表 + 当前是哪个（顺带回填摆放）
+  setTimeout(syncFromDevice, 1200);
+}
+
+function filter() {
+  const q = $('#search').value.trim().toLowerCase();
+  Object.values(S.groupsEl).forEach(g => {
+    let shown = 0;
+    g.body.querySelectorAll('.p').forEach(el => {
+      const hit = !q || el.dataset.id.toLowerCase().includes(q);
+      el.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    g.box.style.display = shown ? '' : 'none';
+    if (q) g.box.classList.remove('closed');
+  });
+}
+
+boot();
+</script>
+</body>
+</html>

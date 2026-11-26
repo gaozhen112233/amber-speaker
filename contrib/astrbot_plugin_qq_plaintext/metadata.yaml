@@ -1,0 +1,7 @@
+name: astrbot_plugin_qq_plaintext
+desc: "QQ 发出的文字里去掉〔动作〕旁白。音箱平台不受影响（那边正需要这些词来驱动动作），人设和历史都不改，删掉本目录即可完全恢复"
+short_desc: "QQ 侧去掉〔动作〕旁白"
+author: local
+version: 1.0.0
+display_name: QQ 纯文字
+astrbot_version: ">=4.11,<5"

@@ -1,0 +1,44 @@
+# index.txt 格式示例
+
+放在 `assets/<模型目录>/index.txt`，**全部可选**。没有它也能跑，只是界面上没有中文名、
+动作和表情只能靠文件名。
+
+编码 UTF-8，分段用 `[段名]`，段与段之间用「键<TAB>值」或纯文本行。
+
+```
+[meta]
+title	大肥鱼
+profile	dafeiyu
+
+[fix]
+# 几何修正开关（本项目自定义段）：chin 0/1
+chin	0
+
+[exp]
+# 中文名<TAB>exp3.json 的相对路径
+脸红	exp/e16.exp3.json
+黑框眼镜	exp/e19.exp3.json
+
+[motion]
+# 中文名<TAB>motion3.json 的相对路径
+点头	motion/m8.motion3.json
+摇头	motion/m9.motion3.json
+
+[hide]
+# 可选：藏掉部件
+# part 18              按 Part 序号
+# draw 12              按 drawable 序号
+# drawid ArtMesh245    按 drawable id
+
+[order]
+# 可选：调整绘制顺序（谨慎，容易把嘴或刘海挪走）
+```
+
+## 注意
+
+- `[exp]` 和 `[motion]` 的中文名就是调参台按钮上的字，也是模型回复里
+  `〔动作词〕` 能匹配到的词（词表在 `src/com/amber/speaker/cue/WordTable.java`）。
+- **`[hide]` 和 `[order]` 慎用**。作者曾经为了修「下巴白块」藏过 `ArtMesh245`、
+  挪过十片侧发，结果一个是脸的皮肤底色、一个混着刘海和嘴，两轮都改错了。
+  真正的原因是合批的颜色 bug，见 [TROUBLESHOOTING](../docs/TROUBLESHOOTING.md#颜色不对皮肤整块纯白--某一片用了别人的颜色)。
+- 动作文件必须 `indent=1`（见 [DEVELOPMENT](../docs/DEVELOPMENT.md#motion3json-必须是-indent1)）。

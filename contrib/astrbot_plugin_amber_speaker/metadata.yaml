@@ -1,0 +1,16 @@
+name: astrbot_plugin_amber_speaker
+display_name: 琥珀音箱
+short_desc: 把琥珀音箱（C2 / 大肥鱼）接进 AstrBot：她在这个音箱里说话、做动作、被叫醒。
+desc: >-
+  音箱这边只有一块屏和一嗓子，没有键盘。这个插件把音箱做成 AstrBot 的一个消息平台：
+  外面送进来的每一句话都走完整流水线（人设、记忆、工具、记账，和 QQ 里一模一样），
+  回复再由这里合成语音、连同 audio_url 一起推回设备，设备负责字幕 + 出声 + 口型 + 动作。
+  语音策略是「音箱强制 100%」，不读全局 trigger_probability——那条 0.3 是给 QQ 用的。
+help: |-
+  1. 面板「平台」里新增「琥珀音箱」，填设备的局域网地址（device_url，默认 http://192.168.31.43:8788）
+  2. 本插件监听 8789，收 POST /utter {"text": "..."} 进流水线；GET /state 可查设备状态
+  3. 容器需要把 8789 映射出来，设备才能下载合成好的 wav
+version: v0.1.0
+author: local
+repo: ""
+astrbot_version: ">=4.16,<5"

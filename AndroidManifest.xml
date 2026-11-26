@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.amber.speaker"
+    android:versionCode="2"
+    android:versionName="0.2">
+
+    <!-- Android 5.1 只认 v1 签名，minSdk 21 覆盖它 -->
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 配网：这台机器的系统设置界面在物理屏上是竖着的（我们的 app 自己强制横屏才正），
+         在里面输 WiFi 密码要歪着头，所以在自己的 /wifi 端点里做。
+         5.1 上这两个都是 normal 权限，装上就有；而且 5.1 还允许普通应用 addNetwork。 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 唤醒词的前置：先能录音。/record 端点录一小段存 /sdcard 做自检。
+         Android 5.1（API 22）危险权限安装即授予，不需要运行时申请；
+         升到 6.0+ 才要补 requestPermissions。 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- 走近唤醒的摄像头二次确认（§4.1）：人体感应触发后短暂开摄像头做硬件人脸检测，
+         确认是真人（只检测不识别、不取帧不落盘）。5.1 上是危险权限，安装即授予。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- 开机自启。电源接在米家智能插座上时，关机=断电、开机=通电，
+         通电后必须自己把应用拉起来，否则「米家点开机，什么都不发生」。
+         Android 5.1 没有后台启动限制，BOOT_COMPLETED 可靠。 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:label="大肥鱼"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true"
+        android:extractNativeLibs="true"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:label="大肥鱼"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 断电重启后把自己拉起来。QUICKBOOT_POWERON 是部分 MTK/高通机型的快启动广播。 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
