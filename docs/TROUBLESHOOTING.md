@@ -218,6 +218,38 @@ adb shell su -c 'cp /system/bin/busybox /data/adb/magisk/busybox'
 
 ---
 
+## 她说「摄像头打不开」／看不见东西
+
+让她看东西（「你看看我手里拿的什么」），她回「【眼睛】取帧失败：camera_open_failed」，或者干脆说摄像头打不开。同时「走近唤醒」也不再确认人脸。
+
+**根因是相机守护进程假活，不是被占用。** `mm-qcamera-daemon`（init 服务名 `qcamerasvr`）会出现这种状态：
+
+- 进程活着，`ps | grep camera` 能看到；
+- `dumpsys media.camera` 也正常，还写着 `No active camera clients`；
+- 但任何 `Camera.open(0)` 都抛 `Fail to connect to camera service`。
+
+判据：
+
+```bash
+adb logcat -d -s Snapshot:V GazeTracker:V | tail
+# W/Snapshot: 开摄像头失败（第 1 次）：Fail to connect to camera service
+```
+
+**三种修法，从省事到彻底：**
+
+1. **等她自愈**（0.2.1 起内置）：连续开三次失败会自动 su 重启 `qcamerasvr`，然后重试，全程约 3 秒——主人只会觉得「她想了下才回答」。前提是 Magisk 给过本应用 su 授权（见 [DEPLOY §3](DEPLOY.md)），没授权时日志是 `su 超时（可能弹了授权框没人点）`。
+2. **调参台点「修复摄像头」**：走电脑这边的 adb root，**不需要设备上的 su 授权**，3 秒完成。这是别人部署时最稳的一条。
+3. **命令行**：
+   ```bash
+   adb shell su -c "stop qcamerasvr; start qcamerasvr"
+   ```
+
+修完再叫她一次——她那轮交互里视线追踪已经放弃了，要重新进入 listening 才会重新开摄像头。
+
+> 注意：别去 `stop media`（重启 mediaserver）。音频和相机在同一个进程里，重启它会让正在播放的声音断掉，而且实测对这个问题没帮助。
+
+---
+
 ## 走近她没反应
 
 ```bash

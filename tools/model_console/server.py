@@ -358,6 +358,31 @@ def screenshot():
     return data
 
 
+def heal_camera():
+    """重启设备上的相机守护进程（init 服务 qcamerasvr）。
+
+    这台机器的 QCamera HAL 会「假活」：进程在、`dumpsys media.camera` 也正常，但任何
+    `Camera.open(0)` 都抛 `Fail to connect to camera service`——用户看到的就是
+    「摄像头打不开」，连走近唤醒的人脸确认也一起失效。`stop/start qcamerasvr` 能立刻恢复。
+
+    走 adb（电脑这边有 root），不依赖设备上那个 App 的 su 授权，所以是首选的修法。
+    """
+    serial = adb_serial()
+    if not serial:
+        raise RuntimeError("adb 上找不到设备（先 adb connect <设备IP>:5555）")
+    # 整条命令作为一个参数传给远端 sh：分开传的话分号会被 host shell 解释，
+    # 变成「su -c stop」（只跑了一半）＋「start qcamerasvr」（非 root 起不来）。
+    cmd = "su -c 'stop qcamerasvr; start qcamerasvr'"
+    try:
+        out = subprocess.run([ADB, "-s", serial, "shell", cmd],
+                             capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("adb 执行超时（设备上可能在等 su 授权框）")
+    tail = (out.stdout + out.stderr).decode("utf-8", "replace").strip()
+    time.sleep(2.5)  # 等 daemon 重新起来，紧接着取帧才不会又失败
+    return {"ok": True, "detail": tail[:200] or "qcamerasvr 已重启"}
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -516,6 +541,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 return self._json(device_post("/video/clean"))
             except (URLError, HTTPError, OSError) as e:
+                return self._json({"ok": False, "error": str(e)}, 502)
+        if path == "/api/camera-heal":
+            # 「摄像头打不开」的急救：重启相机守护进程（走 adb root，不用设备端 su 授权）。
+            try:
+                return self._json(heal_camera())
+            except Exception as e:                                  # noqa: BLE001
                 return self._json({"ok": False, "error": str(e)}, 502)
         if path == "/api/settings":
             key = (data.get("key") or "").strip()

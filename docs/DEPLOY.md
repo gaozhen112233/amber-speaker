@@ -96,6 +96,11 @@ adb shell su -c 'setprop persist.adb.tcp.port 5555'
 | `/sys/class/leds/lcd-backlight/brightness` 可写 | 真的关背光（熄屏休眠） | 到点「熄屏」只是画面变黑，背光还亮着 |
 | `/dev/input/eventN`（hum_sensor）可读 | 读 PIR 人体感应 | 走近唤醒、在场搭话全部失效 |
 | Magisk `service.d` 开机脚本 | chmod 节点 + 保活拉起 | 重启后权限丢失；重装 APK 后没人拉起 |
+| **给本应用 su 授权（`com.amber.speaker`）** | 相机守护进程假死时自己重启它 | 她说「摄像头打不开」，AI 识物、走近认人一起失效；只能靠调参台的「修复摄像头」按钮救 |
+
+> su 授权这条在新版里是「可选但强烈建议」：没授权也能用，只是相机卡住时她救不回来自己。
+> 授权方法是让她试一次取帧（失败会自动请求 su），屏幕上会弹 Magisk 的超级用户请求，点**允许**；
+> 也可以直接在 Magisk 管理器 → 超级用户 → 手动加上 `com.amber.speaker`。
 
 ### 3.1 装 Magisk 并确认 service.d 真的在跑
 

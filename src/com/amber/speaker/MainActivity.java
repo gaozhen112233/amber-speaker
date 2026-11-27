@@ -31,6 +31,7 @@ import com.amber.speaker.gl.VideoStage;
 import com.amber.speaker.led.Backlight;
 import com.amber.speaker.led.StageLight;
 import com.amber.speaker.net.SayServer;
+import com.amber.speaker.sensor.CameraHealer;
 import com.amber.speaker.sensor.FaceConfirm;
 import com.amber.speaker.sensor.GazeTracker;
 import com.amber.speaker.sensor.HumSensor;
@@ -1437,6 +1438,19 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
                     Log.i(TAG, "诊断命令：" + value);
                     return;
                 }
+                // 相机守护进程自愈（qcamerasvr 假死时 open 一律失败）。手动触发一次，
+                // 用来确认 su 授权到底有没有给——第一次会在屏幕上弹授权框。
+                if ("cameraheal".equals(action)) {
+                    Log.i(TAG, "手动触发相机守护进程重启");
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            boolean ok = CameraHealer.reset(MainActivity.this);
+                            Log.i(TAG, "相机守护进程重启：" + (ok ? "命令已执行" : "失败（检查 su 授权）"));
+                        }
+                    }, "amber-camera-heal").start();
+                    return;
+                }
                 // 诊断：手动触发一次摄像头二次确认（FaceConfirm），验证「开摄像头 + 硬件人脸检测」
                 // 这条链路。正常路径由人体感应器自动触发；这个口子留给人不在现场时排查摄像头用。
                 if ("face".equals(action)) {
@@ -1682,6 +1696,20 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
             return "{\"ok\":false,\"error\":\"not_ready\"}";
         }
 
+        // 摄像头是单实例资源：交互期间 GazeTracker 正开着它做视线追踪，不让路就会撞成
+        // 「Fail to connect to camera service」——主人问「你看看这个」听到的却是「摄像头打不开」。
+        final boolean gazeYielded = gaze != null && gaze.isTracking();
+        if (gazeYielded) {
+            Log.i(TAG, "眼睛工具：先让视线追踪让出摄像头");
+            gaze.stop();
+            try {
+                // 本方法跑在 HTTP 线程，睡一下没事；给相机服务回收句柄的时间。
+                Thread.sleep(180);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        try {
         // 同步等待取帧结果（最多 5 秒）。用 CountDownLatch 桥接相机的异步回调。
         final java.util.concurrent.CountDownLatch latch =
                 new java.util.concurrent.CountDownLatch(1);
@@ -1704,7 +1732,7 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
             }
         });
         try {
-            if (!latch.await(6, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!latch.await(12, java.util.concurrent.TimeUnit.SECONDS)) {
                 return "{\"ok\":false,\"error\":\"timeout\"}";
             }
         } catch (InterruptedException e) {
@@ -1725,6 +1753,27 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
         return "{\"ok\":true,\"format\":\"jpeg\",\"base64\":\"" + b64 + "\""
                 + (dims[0] > 0 ? ",\"width\":" + dims[0] + ",\"height\":" + dims[1] : "")
                 + "}";
+        } finally {
+            ensureGazeRunning();
+        }
+    }
+
+    /**
+     * 取帧结束后确认视线追踪在跑。
+     *
+     * <p>两种情况要补：① 我们为了取帧主动 {@code stop} 过它（{@code doFrame} 只在相位边沿起停，
+     * 不会自己补）；② 它本来就没开成功——相机在此之前是坏的，而刚才的自愈把它修好了。
+     * 不补这一下，这一整轮交互她都不看人。
+     */
+    private void ensureGazeRunning() {
+        if (gaze == null || !Settings.gazeEnabled() || gaze.isTracking()) {
+            return;
+        }
+        int phase = wake == null ? -1 : wake.phase();
+        if (phase == WakeState.PHASE_LISTENING || phase == WakeState.PHASE_SPEAKING) {
+            gaze.start();
+            Log.i(TAG, "眼睛工具：取帧结束，视线追踪已接回");
+        }
     }
 
     /** 当天日期键（yyyy-MM-dd），用校正后的墙钟。 */

@@ -597,11 +597,14 @@
         <div class="chips">
           <button class="chip" id="btnClockNow">用电脑时间对时</button>
           <button class="chip" id="btnRebootApp">重启应用</button>
+          <button class="chip" id="btnHealCam" title="摄像头打不开 / 走近不认人时点这个">修复摄像头</button>
           <button class="chip" id="btnKillServer" title="只关掉本机这个网页服务">关掉调参台</button>
         </div>
         <div class="note plain">地址存在 <code>tools/model_console/console.json</code>，也可以先用命令行参数
           <code>python server.py 192.168.1.20:8788</code> 覆盖。改完会立即切过去；对时传的是毫秒，
-          设备会拒收 2020 年以前的时间。</div>
+          设备会拒收 2020 年以前的时间。
+          「修复摄像头」走电脑这边的 adb root 重启相机守护进程（设备上不用授 su），
+          用在「她说摄像头打不开」的时候——大约 3 秒，期间她不会看人。</div>
       </div>
     </div>
 
@@ -1128,6 +1131,15 @@ function bindLight() {
     if (!confirm('重启设备上的应用？（约 15 秒后恢复，期间 8788 不通）')) return;
     try { await api('/api/control', { action: 'reboot', value: '' }); log('已发重启'); }
     catch (e) { log('重启失败：' + e.message, true); }
+  });
+  $('#btnHealCam').addEventListener('click', async () => {
+    if (!confirm('重启音箱的相机守护进程？（约 3 秒，期间她不看人；修好后再叫她一次）')) return;
+    log('正在重启相机守护进程…');
+    try {
+      const r = await api('/api/camera-heal', {});
+      if (!r.ok) throw new Error(r.error || '失败');
+      log('相机已重启：' + (r.detail || 'ok') + '。叫她一声试试。');
+    } catch (e) { log('修复失败：' + e.message, true); }
   });
   $('#btnKillServer').addEventListener('click', async () => {
     if (!confirm('关掉本机这个调参台网页服务？设备本身不受影响。')) return;

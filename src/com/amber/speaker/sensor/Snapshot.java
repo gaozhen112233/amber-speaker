@@ -39,8 +39,15 @@ public final class Snapshot {
 
     private static final String TAG = "Snapshot";
 
-    /** 取帧窗口：从开摄像头到放弃，最长 4 秒（摄像头冷启动 + preview 起流 + takePicture 生效）。 */
-    private static final long SNAPSHOT_TIMEOUT_MS = 4000;
+    /** 取帧窗口：开摄像头 + 起流 + takePicture，含失败重试与守护进程自愈，最长 9 秒。 */
+    private static final long SNAPSHOT_TIMEOUT_MS = 9000;
+
+    /** 摄像头被别的使用者（视线追踪 / 走近确认 / 在场探测）占着时的重试次数与间隔。 */
+    private static final int OPEN_RETRIES = 3;
+    private static final long OPEN_RETRY_DELAY_MS = 300;
+
+    /** 重启 qcamerasvr 之后等它起来的时间。 */
+    private static final long HEAL_WAIT_MS = 2500;
 
     /** 结果回调。非主线程回调。 */
     public interface Listener {
@@ -96,12 +103,41 @@ public final class Snapshot {
     }
 
     private void open() {
+        openAttempt(0);
+    }
+
+    /**
+     * 第 {@code attempt} 次开摄像头；失败就延迟重试，最多 {@link #OPEN_RETRIES} 次。
+     *
+     * <p>这台机器上摄像头是<b>单实例</b>资源：视线追踪（交互期间常开）、走近确认（PIR 触发）、
+     * 在场探测（每 60 秒一次）都会临时 {@code Camera.open(0)}。撞上了就抛
+     * {@code Fail to connect to camera service}——以前这里直接放弃，主人问「你看看这个」
+     * 得到的是「摄像头打不开」。等一两百毫秒通常就释放了，所以重试比报错有用。
+     *
+     * <p>用 {@code postDelayed} 而不是 {@code Thread.sleep}：这里跑在主线程，睡会把画面卡住。
+     */
+    private void openAttempt(final int attempt) {
+        if (pending == null) {
+            return;  // 已被超时收走，别再往下走
+        }
         Camera cam = null;
         try {
             cam = Camera.open(0);  // 后摄（契约 §4.5.1：Camera 0，Orientation 180，API 1）
         } catch (RuntimeException e) {
-            Log.w(TAG, "开摄像头失败：" + e.getMessage());
-            finishError("camera_open_failed");
+            Log.w(TAG, "开摄像头失败（第 " + (attempt + 1) + " 次）：" + e.getMessage());
+            if (attempt < OPEN_RETRIES - 1) {
+                main.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        openAttempt(attempt + 1);
+                    }
+                }, OPEN_RETRY_DELAY_MS);
+            } else if (attempt == OPEN_RETRIES - 1) {
+                // 连试三次都「连不上相机服务」——不是被占，是守护进程假活了，重启它再试一次。
+                healAndRetry(attempt + 1);
+            } else {
+                finishError("camera_open_failed");
+            }
             return;
         }
         camera = cam;
@@ -186,8 +222,37 @@ public final class Snapshot {
         return best;
     }
 
-    private synchronized void finishFrame(byte[] jpeg, int width, int height) {
-        releaseCamera();
+    /**
+     * 三次 open 都失败之后的最后一招：后台重启相机守护进程，再 open 一次。
+     *
+     * <p>不放主线程：{@code su} 没授权时会弹框等人点，主线程被卡住就是画面定格。
+     *
+     * @param nextAttempt 重试序号（用来让 {@link #openAttempt} 知道这是最后一枪）
+     */
+    private void healAndRetry(final int nextAttempt) {
+        Log.i(TAG, "连续开不起来，尝试重启相机守护进程");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final boolean healed = CameraHealer.reset(app);
+                main.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (pending == null) {
+                            return;  // 已经超时收工
+                        }
+                        if (healed) {
+                            openAttempt(nextAttempt);
+                        } else {
+                            finishError("camera_open_failed");
+                        }
+                    }
+                }, healed ? HEAL_WAIT_MS : 0);
+            }
+        }, "amber-camera-heal").start();
+    }
+
+    private synchronized void finishFrame(byte[] jpeg, int width, int height) {        releaseCamera();
         Listener listener = pending;
         pending = null;
         if (listener != null) {

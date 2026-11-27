@@ -114,6 +114,7 @@ curl -X POST http://<音箱IP>:8788/control -H 'Content-Type: application/json' 
 | `reboot` | 空 | 重启应用（不是设备） |
 | `skit` | 小剧场名 | 演一段 `assets/skits.txt` 里的段子 |
 | `face` | 空 | 手动触发一次摄像头人脸确认（诊断） |
+| `cameraheal` | 任意非空 | 重启相机守护进程 `qcamerasvr`（「摄像头打不开」的急救，需要 su 授权） |
 | `hide` | `hide` / `show` | 全部件隐藏/显示（量渲染开销） |
 | `diag` | 原生命令 | 直通车，见下 |
 
@@ -229,7 +230,7 @@ curl -X POST http://<音箱IP>:8788/video/clean
 |---|---|
 | `GET /health` | 活着就 `{"ok":true}`，给探活用 |
 | `POST /wifi` | 配网 `{"ssid":"...","pass":"..."}`。设备的系统设置是竖屏，歪头输密码太痛苦，所以自己做了一个 |
-| `POST /snapshot` | 「眼睛」：抓一帧给视觉模型。同步阻塞 ≤5 秒，有每日额度 |
+| `POST /snapshot` | 「眼睛」：抓一帧给视觉模型。同步阻塞 ≤12 秒（含失败重试与相机自愈），有每日额度 |
 
 ---
 
@@ -244,7 +245,8 @@ curl -X POST http://<音箱IP>:8788/video/clean
 | `GET /api/models` | 模型目录列表 + 当前 |
 | `GET /api/state` | 转发 `/state` |
 | `GET/POST /api/settings` | 转发 `/settings` |
-| `GET /api/snapshot` | 经 adb 截屏（PNG） |
+| `GET /api/snapshot` | 经 adb 截屏（PNG，这是屏幕不是摄像头） |
+| `POST /api/camera-heal` | 经 adb root 重启相机守护进程（不需要设备端 su 授权） |
 | `POST /api/control` | 转发 `/control` |
 | `POST /api/cmd` | 批量 diag 命令 |
 | `POST /api/clock` | 转发 `/clock` |

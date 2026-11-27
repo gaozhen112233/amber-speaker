@@ -1,5 +1,23 @@
 # 更新日志
 
+## v0.2.1 — 2026-11-27
+
+**AI 识物能用得上了**
+
+- 修「让她看东西，她答『摄像头打不开』」：根因不是摄像头被占用，是相机守护进程
+  `mm-qcamera-daemon`（`qcamerasvr`）假活——进程在、`dumpsys` 正常，但 `Camera.open(0)`
+  一律抛 `Fail to connect to camera service`。
+- 取帧失败改成三次重试（300 ms 间隔）；仍失败就自动 su 重启 `qcamerasvr` 再试一次，
+  全程约 3 秒（新增 `sensor/CameraHealer`）。没授 su 时仍会正常失败，不会卡住。
+- 取帧前主动让视线追踪让出摄像头，取帧结束后（含自愈成功的情况）自动接回，
+  不再出现「这一轮她全程不看你」。
+- 插件：`camera_snapshot` 会把主人那句原话带进视觉 prompt，问「我手里拿的什么」时
+  描述才会对准那个东西。
+- 调参台新增「修复摄像头」按钮（走电脑 adb root，不需要设备端 su 授权）；
+  `/control` 新增 `cameraheal` 动作。
+- 文档：TROUBLESHOOTING 新增「她说摄像头打不开」一节；DEPLOY 前置条件补
+  「给本应用 su 授权（可选，用于相机自愈）」。
+
 ## v0.2.0 — 2026-11-26
 
 第一次公开整理。

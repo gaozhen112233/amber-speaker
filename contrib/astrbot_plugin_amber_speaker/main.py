@@ -1170,7 +1170,7 @@ class AmberSpeakerPlatform(Platform):
             logger.warning("[音箱] 设备连不上（%s）：%s", url, exc)
             return None
 
-    async def snapshot_and_describe(self) -> str:
+    async def snapshot_and_describe(self, question: str = "") -> str:
         """调设备取一帧画面，交给视觉模型描述，返回「你看到了什么」的文本。
 
         <p>这是契约 §7.1「眼睛」工具的 AstrBot 侧实现：大模型在对话里想看看主人
@@ -1221,6 +1221,14 @@ class AmberSpeakerPlatform(Platform):
             "你透过音箱的摄像头看到了一帧画面。用一句自然的话描述画面里有什么、"
             "有没有人、那人在做什么。不要编造，看不清楚就说看不清。"
         )
+        # 把主人这句话带进去：他说「你看看我手里拿的什么」时，描述才会对准那个东西；
+        # 只说「你看看」时，行为和以前一样。截断到 120 字，防止有人贴一大段把 prompt 撑爆。
+        q = (question or "").strip()
+        if q:
+            prompt = prompt + (
+                "\n\n主人刚说的话是：「%s」。如果他在问画面里的某样东西，"
+                "就针对那个东西回答；如果只是随口一句，就按平常描述。" % q[:120]
+            )
         try:
             resp = await asyncio.wait_for(
                 provider.text_chat(prompt=prompt, image_urls=[data_url]),
@@ -1936,7 +1944,8 @@ class AmberSpeakerPlugin(Star):
         inst = self._platform()
         if inst is None:
             return "【眼睛】音箱平台没起来，看不到画面。"
-        return await inst.snapshot_and_describe()
+        # 带上主人那句原话，识物时才能对准他问的东西（「我手里拿的是什么」）。
+        return await inst.snapshot_and_describe(event.message_str or "")
 
     @filter.command("音箱")
     async def speaker_cmd(self, event: AstrMessageEvent):
