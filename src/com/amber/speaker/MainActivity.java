@@ -1657,18 +1657,20 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
     /**
      * 「眼睛」工具（POST /snapshot）。同步阻塞（最多 5 秒）取一帧 JPEG，转 base64 交出去。
      *
-     * <p>额度闸门（§7.1，防她变成「监控」）：两次间隔 + 每天上限，两项都是 {@link Settings}
-     * 里的可调项（{@code snap_cool} / {@code snap_day}）。原来写死 600 秒 / 10 次，
-     * 结果「看一眼」这种正常用法被自己的额度挡住——现在默认 30 秒 / 100 次，
-     * 想回到严格档把 snap_cool 设 600、snap_day 设 10 即可。
-     * 超额度返回结构化回执「额度已用完」，不带画面——她拿不到画面、只能收到回执，
+     * <p>额度闸门：默认**不设限**（{@code snap_cool=0}、{@code snap_day=0}）。
+     * 理由：取帧只发生在主人主动开口的时候（「你看看这个」），不是她自己定时偷看；
+     * 原来写死 600 秒 / 10 次，结果是主人在一句话里想再看一眼都要等十分钟。
+     * 想回到严格档就 {@code POST /settings {"key":"snap_cool","value":"600"}} 与
+     * {@code snap_day=10}；两项都为 0 时连每日计数都不拦。
+     *
+     * <p>额度用完时返回结构化回执、不带画面——她拿不到画面就只能收到回执，
      * 不能编造画面内容（§16.1）。取帧单次 ≤ 4 秒（{@link Snapshot} 内部窗口），
      * 只取一帧、不落盘、不识别身份，base64 交 AstrBot 侧视觉模型分析。
      */
     @Override
     public String onSnapshot() {
         final long nowMs = Clock.now();
-        // 时间不可信就拒绝：额度闸门依赖墙钟（跨天归零），墙钟不可信时宁可拒给画面。
+        // 时间不可信就拒绝：跨天归零依赖墙钟，墙钟不可信时宁可拒给画面。
         if (!Clock.trusted()) {
             Log.w(TAG, "眼睛工具：时间不可信，拒给画面（先 /clock 对时）");
             return "{\"ok\":false,\"error\":\"clock_untrusted\"}";
@@ -1679,13 +1681,13 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
             snapshotDayKey = dayKey;
             snapshotDayCount = 0;
         }
-        // 每日上限（可调，默认 100）
+        // 每日上限（0 = 不限）
         final int dayLimit = Settings.snapDayLimit();
-        if (snapshotDayCount >= dayLimit) {
+        if (dayLimit > 0 && snapshotDayCount >= dayLimit) {
             Log.w(TAG, "眼睛工具：今日已达上限 " + dayLimit + " 次");
             return "{\"ok\":false,\"error\":\"daily_limit\"}";
         }
-        // 冷却间隔（可调，默认 30 秒；0 = 不限制）
+        // 冷却间隔（0 = 不限制）
         final long coolMs = Settings.snapCoolMs();
         if (coolMs > 0 && lastSnapshotAt != 0 && nowMs - lastSnapshotAt < coolMs) {
             long waitSec = (coolMs - (nowMs - lastSnapshotAt)) / 1000;

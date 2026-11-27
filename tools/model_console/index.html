@@ -555,16 +555,16 @@
         <div class="set-sec">识物（眼睛）</div>
         <div class="srow">
           <span class="sname">取帧间隔</span>
-          <input type="number" id="setSnapCool" min="0" max="3600" step="1" value="30">
+          <input type="number" id="setSnapCool" min="0" max="3600" step="1" value="0">
           <span class="sval">秒</span>
         </div>
-        <div class="sdesc">两次「让她看东西」之间至少隔多久；0 = 不限制（默认 30 秒，原来的严格档是 600）</div>
+        <div class="sdesc">0 = 不限制（默认）。识物是你主动开口才触发的，不是她定时偷看；想防被动场景再填 600</div>
         <div class="srow">
           <span class="sname">每日上限</span>
-          <input type="number" id="setSnapDay" min="1" max="500" step="1" value="100">
+          <input type="number" id="setSnapDay" min="0" max="100000" step="1" value="0">
           <span class="sval">次</span>
         </div>
-        <div class="sdesc">一天最多取几帧；防的是「变成监控」，不是防主人自己看</div>
+        <div class="sdesc">0 = 不限制（默认）；填数字才计数，跨天自动归零</div>
 
         <div class="chips" style="margin-top:10px">
           <button class="chip" id="btnSettingsReload">从设备重读</button>

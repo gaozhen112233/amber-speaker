@@ -49,15 +49,16 @@ public final class Settings {
     private static volatile boolean gazeOn = true;
 
     /**
-     * 「眼睛」工具两次取帧的最小间隔（秒）。0 = 不限制。
+     * 「眼睛」工具两次取帧的最小间隔（秒）。0 = 不限制（默认就是 0）。
      *
-     * <p>原来是写死的 600 秒（防她变成监控）。但「你看看我手里拿的什么」这种用法，
-     * 问完一句再想让她看一眼就要等十分钟，等于不能用——所以改成可调，
-     * 默认 30 秒只用来挡住连点/重试风暴，想回到严格档就设 600。
+     * <p>历史：写死过 600 秒（防她变成监控），后来放宽到 30 秒。但识物是**主人主动开口**
+     * 才触发的一次性动作，不是她自己定时偷看——同一句话里她连问两次、或者主人说
+     * 「再看一眼」还要等半分钟，都属于功能不可用。所以默认不限。
+     * 真担心被动场景就把这项设成 600，那是原来的严格档。
      */
-    private static volatile int snapCoolSec = 30;
-    /** 「眼睛」工具每天最多取帧几次。默认 100（原来写死 10）。 */
-    private static volatile int snapDayLimit = 100;
+    private static volatile int snapCoolSec = 0;
+    /** 「眼睛」工具每天最多取帧几次。0 = 不限制（默认）。 */
+    private static volatile int snapDayLimit = 0;
 
     private Settings() {
     }
@@ -187,7 +188,8 @@ public final class Settings {
             } else if ("snap_cool".equals(k)) {
                 snapCoolSec = clampInt(v, 0, 3600);
             } else if ("snap_day".equals(k)) {
-                snapDayLimit = clampInt(v, 1, 500);
+                // 0 = 不限次数；上限只防误填天文数字
+                snapDayLimit = clampInt(v, 0, 100000);
             } else {
                 return "不认识的设置项：" + k;
             }
@@ -221,8 +223,8 @@ public final class Settings {
         presenceHourEnd = 23;
         listenSec = 15;
         gazeOn = true;
-        snapCoolSec = 30;
-        snapDayLimit = 100;
+        snapCoolSec = 0;
+        snapDayLimit = 0;
     }
 
     /** 给 {@code /state} 与 {@code /settings} 用的一份快照（手写 JSON，不引 org.json）。 */
