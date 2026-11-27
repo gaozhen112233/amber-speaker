@@ -25,6 +25,7 @@ public final class SettingsStore {
             "presence_on", "presence_after", "presence_cool",
             "presence_hour_start", "presence_hour_end",
             "listen_sec", "gaze_on",
+            "snap_cool", "snap_day",
     };
 
     private SettingsStore() {

@@ -135,7 +135,7 @@ curl -X POST http://<音箱IP>:8788/control -H 'Content-Type: application/json' 
 
 ## GET/POST /settings
 
-行为设置。13 项，默认值与固件原始常量一致。
+行为设置。15 项，默认值与固件原始常量一致（额度和间隔见 `snap_cool` / `snap_day`）。
 
 ```bash
 curl http://<音箱IP>:8788/settings
@@ -230,7 +230,7 @@ curl -X POST http://<音箱IP>:8788/video/clean
 |---|---|
 | `GET /health` | 活着就 `{"ok":true}`，给探活用 |
 | `POST /wifi` | 配网 `{"ssid":"...","pass":"..."}`。设备的系统设置是竖屏，歪头输密码太痛苦，所以自己做了一个 |
-| `POST /snapshot` | 「眼睛」：抓一帧给视觉模型。同步阻塞 ≤12 秒（含失败重试与相机自愈），有每日额度 |
+| `POST /snapshot` | 「眼睛」：抓一帧给视觉模型。同步阻塞 ≤12 秒（含失败重试与相机自愈）；间隔 `snap_cool` / 每日 `snap_day` 可调，默认 30 秒 / 100 次 |
 
 ---
 

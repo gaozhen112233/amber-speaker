@@ -23,7 +23,7 @@ import sys
 import zipfile
 
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 
 # 明确要带上的顶层条目
 INCLUDE = [

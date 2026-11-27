@@ -1654,15 +1654,13 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
 
     // ---------------------------------------------------------------- 眼睛工具（§7.1）
 
-    /** 两次取帧的最小间隔（契约 §7.1：≥ 10 分钟）。 */
-    private static final long SNAPSHOT_COOLDOWN_MS = 10 * 60 * 1000L;
-    /** 每天取帧上限（契约 §7.1：≤ 10 次）。 */
-    private static final int SNAPSHOT_DAY_LIMIT = 10;
-
     /**
      * 「眼睛」工具（POST /snapshot）。同步阻塞（最多 5 秒）取一帧 JPEG，转 base64 交出去。
      *
-     * <p>额度闸门（§7.1，防她变成「监控」）：两次间隔 ≥ 10 分钟 + 每天 ≤ 10 次。
+     * <p>额度闸门（§7.1，防她变成「监控」）：两次间隔 + 每天上限，两项都是 {@link Settings}
+     * 里的可调项（{@code snap_cool} / {@code snap_day}）。原来写死 600 秒 / 10 次，
+     * 结果「看一眼」这种正常用法被自己的额度挡住——现在默认 30 秒 / 100 次，
+     * 想回到严格档把 snap_cool 设 600、snap_day 设 10 即可。
      * 超额度返回结构化回执「额度已用完」，不带画面——她拿不到画面、只能收到回执，
      * 不能编造画面内容（§16.1）。取帧单次 ≤ 4 秒（{@link Snapshot} 内部窗口），
      * 只取一帧、不落盘、不识别身份，base64 交 AstrBot 侧视觉模型分析。
@@ -1681,14 +1679,16 @@ public final class MainActivity extends Activity implements SayServer.Listener, 
             snapshotDayKey = dayKey;
             snapshotDayCount = 0;
         }
-        // 每日上限
-        if (snapshotDayCount >= SNAPSHOT_DAY_LIMIT) {
-            Log.w(TAG, "眼睛工具：今日已达上限 " + SNAPSHOT_DAY_LIMIT + " 次");
+        // 每日上限（可调，默认 100）
+        final int dayLimit = Settings.snapDayLimit();
+        if (snapshotDayCount >= dayLimit) {
+            Log.w(TAG, "眼睛工具：今日已达上限 " + dayLimit + " 次");
             return "{\"ok\":false,\"error\":\"daily_limit\"}";
         }
-        // 冷却间隔
-        if (lastSnapshotAt != 0 && nowMs - lastSnapshotAt < SNAPSHOT_COOLDOWN_MS) {
-            long waitSec = (SNAPSHOT_COOLDOWN_MS - (nowMs - lastSnapshotAt)) / 1000;
+        // 冷却间隔（可调，默认 30 秒；0 = 不限制）
+        final long coolMs = Settings.snapCoolMs();
+        if (coolMs > 0 && lastSnapshotAt != 0 && nowMs - lastSnapshotAt < coolMs) {
+            long waitSec = (coolMs - (nowMs - lastSnapshotAt)) / 1000;
             Log.w(TAG, "眼睛工具：冷却中，还需 " + waitSec + " 秒");
             return "{\"ok\":false,\"error\":\"cooldown\",\"retry_after_sec\":" + waitSec + "}";
         }

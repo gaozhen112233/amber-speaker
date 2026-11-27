@@ -48,6 +48,17 @@ public final class Settings {
     /** 视线追踪：说话/听的时候眼睛跟着镜头里的人。 */
     private static volatile boolean gazeOn = true;
 
+    /**
+     * 「眼睛」工具两次取帧的最小间隔（秒）。0 = 不限制。
+     *
+     * <p>原来是写死的 600 秒（防她变成监控）。但「你看看我手里拿的什么」这种用法，
+     * 问完一句再想让她看一眼就要等十分钟，等于不能用——所以改成可调，
+     * 默认 30 秒只用来挡住连点/重试风暴，想回到严格档就设 600。
+     */
+    private static volatile int snapCoolSec = 30;
+    /** 「眼睛」工具每天最多取帧几次。默认 100（原来写死 10）。 */
+    private static volatile int snapDayLimit = 100;
+
     private Settings() {
     }
 
@@ -117,6 +128,20 @@ public final class Settings {
         return gazeOn;
     }
 
+    /** 取帧冷却（毫秒）。 */
+    public static long snapCoolMs() {
+        return snapCoolSec * 1000L;
+    }
+
+    public static int snapCoolSec() {
+        return snapCoolSec;
+    }
+
+    /** 每天取帧上限（次）。 */
+    public static int snapDayLimit() {
+        return snapDayLimit;
+    }
+
     // ------------------------------------------------------------ 写入入口
 
     /**
@@ -159,6 +184,10 @@ public final class Settings {
                 listenSec = clampInt(v, 3, 120);
             } else if ("gaze_on".equals(k)) {
                 gazeOn = bool(v);
+            } else if ("snap_cool".equals(k)) {
+                snapCoolSec = clampInt(v, 0, 3600);
+            } else if ("snap_day".equals(k)) {
+                snapDayLimit = clampInt(v, 1, 500);
             } else {
                 return "不认识的设置项：" + k;
             }
@@ -192,6 +221,8 @@ public final class Settings {
         presenceHourEnd = 23;
         listenSec = 15;
         gazeOn = true;
+        snapCoolSec = 30;
+        snapDayLimit = 100;
     }
 
     /** 给 {@code /state} 与 {@code /settings} 用的一份快照（手写 JSON，不引 org.json）。 */
@@ -208,7 +239,9 @@ public final class Settings {
                 + ",\"presence_hour_start\":" + presenceHourStart
                 + ",\"presence_hour_end\":" + presenceHourEnd
                 + ",\"listen_sec\":" + listenSec
-                + ",\"gaze_on\":" + gazeOn + "}";
+                + ",\"gaze_on\":" + gazeOn
+                + ",\"snap_cool\":" + snapCoolSec
+                + ",\"snap_day\":" + snapDayLimit + "}";
     }
 
     // ------------------------------------------------------------ 解析工具

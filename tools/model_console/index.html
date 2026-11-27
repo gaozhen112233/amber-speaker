@@ -552,6 +552,20 @@
         </label>
         <div class="sdesc">说话/听的时候眼睛跟着人转</div>
 
+        <div class="set-sec">识物（眼睛）</div>
+        <div class="srow">
+          <span class="sname">取帧间隔</span>
+          <input type="number" id="setSnapCool" min="0" max="3600" step="1" value="30">
+          <span class="sval">秒</span>
+        </div>
+        <div class="sdesc">两次「让她看东西」之间至少隔多久；0 = 不限制（默认 30 秒，原来的严格档是 600）</div>
+        <div class="srow">
+          <span class="sname">每日上限</span>
+          <input type="number" id="setSnapDay" min="1" max="500" step="1" value="100">
+          <span class="sval">次</span>
+        </div>
+        <div class="sdesc">一天最多取几帧；防的是「变成监控」，不是防主人自己看</div>
+
         <div class="chips" style="margin-top:10px">
           <button class="chip" id="btnSettingsReload">从设备重读</button>
           <button class="chip danger" id="btnSettingsReset">恢复默认设置</button>
@@ -1206,6 +1220,8 @@ function adoptSettings(s, force) {
   $('#setPresenceH2').value = s.presence_hour_end;
   $('#setListen').value = s.listen_sec;
   $('#setGazeOn').checked = !!s.gaze_on;
+  if (s.snap_cool != null) $('#setSnapCool').value = s.snap_cool;
+  if (s.snap_day != null) $('#setSnapDay').value = s.snap_day;
   settingsInit = true;
 }
 
@@ -1249,6 +1265,8 @@ function bindSettings() {
   bind('setPresenceH2', 'presence_hour_end', el => el.value);
   bind('setListen', 'listen_sec', el => el.value);
   bind('setGazeOn', 'gaze_on', el => el.checked);
+  bind('setSnapCool', 'snap_cool', el => el.value);
+  bind('setSnapDay', 'snap_day', el => el.value);
 
   $('#btnSettingsReload').addEventListener('click', () => reloadSettings(true));
   $('#btnSettingsReset').addEventListener('click', async () => {

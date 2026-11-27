@@ -1175,8 +1175,8 @@ class AmberSpeakerPlatform(Platform):
 
         <p>这是契约 §7.1「眼睛」工具的 AstrBot 侧实现：大模型在对话里想看看主人
         在做什么时，会调 {@code camera_snapshot} 工具，走到这里。设备端 {@code /snapshot}
-        已经做好额度闸门（间隔≥10分钟 + 每天≤10次），这里只负责「取到 base64 →
-        喂视觉模型 → 拿描述」。
+        已经做好额度闸门（间隔 snap_cool / 每日 snap_day，都是设备端可调设置），
+        这里只负责「取到 base64 → 喂视觉模型 → 拿描述」。
 
         <p>隐私铁律（§16.1）在这里的落点：只取一帧、不落盘（base64 直接转 data URL
         塞进请求）、画面只喂视觉模型、只返回描述文字不回原图。
@@ -1188,7 +1188,12 @@ class AmberSpeakerPlatform(Platform):
         if not data.get("ok"):
             err = data.get("error") or "未知"
             if err == "cooldown":
-                return "【眼睛】冷却中，还不能再看（两次之间至少要隔 10 分钟）。"
+                # 间隔是设备端可调设置（snap_cool），别再写死「10 分钟」——
+                # 回执里带 retry_after_sec，按真实剩余秒数说，免得她说错话。
+                wait = data.get("retry_after_sec")
+                if isinstance(wait, (int, float)) and wait > 0:
+                    return "【眼睛】冷却中，还要再等 %d 秒才能看下一眼。" % int(wait)
+                return "【眼睛】冷却中，还不能再看。"
             if err in ("daily_limit", "hour_limit"):
                 return "【眼睛】今天/这小时的取帧额度用完了，看不到画面。"
             if err == "clock_untrusted":
@@ -1199,11 +1204,17 @@ class AmberSpeakerPlatform(Platform):
         if not b64:
             return "【眼睛】设备回了个空画面。"
         data_url = "data:image/jpeg;base64," + b64
-        desc = await self._describe_image(data_url)
+        desc = await self._describe_image(data_url, question)
         return desc if desc else "【眼睛】取到了画面，但视觉模型没给出描述。"
 
-    async def _describe_image(self, data_url: str) -> str:
-        """把一张 data URL 图片交给当前对话模型分析，返回文字描述。"""
+    async def _describe_image(self, data_url: str, question: str = "") -> str:
+        """把一张 data URL 图片交给当前对话模型分析，返回文字描述。
+
+        <p>{@code question} 是主人这一轮的原话，用来把描述对准他问的东西；
+        单独拆成一个带默认值的参数，是因为这里不是 {@code snapshot_and_describe}
+        的作用域——上一次把拼 prompt 的代码放进来却忘了传参，工具直接抛
+        {@code NameError: name 'question' is not defined}，表象是「摄像头又出错了」。
+        """
         ctx = _PLUGIN_CONTEXT
         if ctx is None:
             return ""
@@ -1935,8 +1946,8 @@ class AmberSpeakerPlugin(Star):
         当你想「看看主人在干嘛」「确认对面的人还在不在」时调用，取一帧画面
         交给视觉模型描述。返回的是画面描述文字，不是原图。
 
-        注意：两次取帧之间至少要隔 10 分钟，每天最多 10 次；额度用完会拿不到
-        画面，此时不要编造画面内容。
+        注意：取帧有额度和间隔限制（设备端 snap_cool / snap_day 可调，默认隔 30 秒、
+        每天 100 次）。拿不到画面时会返回「【眼睛】…」的说明，此时不要编造画面内容。
 
         Returns:
             string: 一帧画面的文字描述
