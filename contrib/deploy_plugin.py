@@ -63,7 +63,10 @@ PLATFORM_ENTRY = {
     "wake_window": 20,
     # 一次唤醒后最多允许几轮不喊名字的接话，超过必须重新喊名字。
     # 挡电视连续对话：误接了一句也不会无限续下去。
-    "wake_followups": 4,
+    # 4 太紧——聊一件事正常就超过 4 轮，第 5 句被整句丢掉（2026-11-27 真机日志）。
+    "wake_followups": 8,
+    # 接话时的字数上限，超过当电视台词不接。原来写死 25 字，只够半句话。
+    "followup_max_chars": 60,
     "voice_max_chars": 120,
     "audio_keep": 80,
     # 调试：把每次 /listen 抓到的 WAV 存到 data/amber_speaker/clips/。
@@ -128,16 +131,34 @@ def main() -> int:
     print(out.strip() or err.strip())
 
     payload = json.dumps(PLATFORM_ENTRY, ensure_ascii=False)
+    # 哪些键是「部署时决定的」，每次都以本次为准；其余的（唤醒词、接话轮数、
+    # 音量、音色之外的调优项）**必须保留容器里现有的值**。
+    #
+    # 原来这里是 `ps[i]=entry` 整条替换，于是每部署一次，所有手动调过的参数
+    # 都被打回模板默认值：2026-11-27 就把 wake_followups=8 冲回了 4，
+    # 表现是「刚改好的东西一部署又不对了」，而且没人会想到是部署脚本干的。
+    forced = ["id", "type", "host", "port", "owner_id"]
+    if os.environ.get("AMBER_DEVICE_URL"):
+        forced.append("device_url")
+    if os.environ.get("AMBER_AUDIO_BASE"):
+        forced.append("audio_base")
+    if os.environ.get("AMBER_TTS"):
+        forced.append("tts_provider")
     script = (
         "import json,io\n"
         "p=%r\n"
         "c=json.load(io.open(p,encoding='utf-8-sig'))\n"
         "entry=json.loads(%r)\n"
+        "forced=set(%r)\n"
         "ps=c.setdefault('platform',[])\n"
         "hit=False\n"
         "for i,x in enumerate(ps):\n"
         "    if x.get('type')=='amber_speaker' or x.get('id')=='amber_speaker':\n"
-        "        ps[i]=entry; hit=True\n"
+        "        m=dict(entry)\n"
+        "        for k,v in x.items():\n"
+        "            if k not in forced:\n"
+        "                m[k]=v\n"
+        "        ps[i]=m; hit=True\n"
         "if not hit:\n"
         "    ps.append(entry)\n"
         # 音箱上的人就是主人，必须算管理员。
@@ -152,7 +173,7 @@ def main() -> int:
         "io.open(p,'w',encoding='utf-8').write(json.dumps(c,ensure_ascii=False,indent=2))\n"
         "print('platform 条目:', [(x.get('type'), x.get('port')) for x in ps])\n"
         "print('admins_id:', admins)\n"
-    ) % (cfg_path, payload, PLATFORM_ENTRY["owner_id"])
+    ) % (cfg_path, payload, forced, PLATFORM_ENTRY["owner_id"])
     sftp.putfo(__import__("io").BytesIO(script.encode("utf-8")), "/tmp/amber_cfg.py")
     sftp.close()
     out, err = run(cli, "python3 /tmp/amber_cfg.py")

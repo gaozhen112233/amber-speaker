@@ -134,7 +134,13 @@ PLATFORM_TMPL: dict[str, Any] = {
     "wake_window": 20,
     # 一次唤醒后最多允许这么多轮「不喊名字的接话」，超过就必须重新喊名字。
     # 挡电视连续对话的最后一道闸：就算误接了一句，也不会无限续下去。
-    "wake_followups": 4,
+    # 原来是 4，实测「聊一件事」很正常就超过 4 轮，第 5 句被整句丢掉，
+    # 用户听到的是「说长了她就不听了」——所以放到 8。嫌吵可以改回 4。
+    "wake_followups": 8,
+    # 接话时最多允许多少个字。超过就当成「电视里的话」不接。
+    # 原来写死 25，可中文 25 个字只够说半句，长一点的话全被这一条毙掉。
+    # 60 字约等于 15~20 秒正常语速，仍然能挡住电视里的长篇台词。
+    "followup_max_chars": 60,
     # 语音每句最多念多少字。太长的话一口气念不完，也占满 TTS 配额。
     "voice_max_chars": 120,
     "audio_keep": 80,
@@ -732,9 +738,14 @@ class AmberSpeakerPlatform(Platform):
         except (TypeError, ValueError):
             self.wake_window = 20
         try:
-            self.wake_followups = int(self.config.get("wake_followups") or 4)
+            self.wake_followups = int(self.config.get("wake_followups") or 8)
         except (TypeError, ValueError):
-            self.wake_followups = 4
+            self.wake_followups = 8
+        # 接话时的字数上限：超过就当电视里的话不接。25 太紧（只够半句），放到 60。
+        try:
+            self.followup_max_chars = int(self.config.get("followup_max_chars") or 60)
+        except (TypeError, ValueError):
+            self.followup_max_chars = 60
 
         self.data_dir = Path(get_astrbot_data_path()) / "amber_speaker"
         self.audio_dir = self.data_dir / "audio"
@@ -1433,8 +1444,8 @@ class AmberSpeakerPlatform(Platform):
         # 每次都说清楚「听到了多响多长的一段」，识别错的时候才分得清是
         # 「麦克风没听见」还是「听见了但认成别的字」——这两种修法完全不同。
         logger.info(
-            "[音箱] 听到一段：%s 毫秒有声 / 峰值 %s / 等了 %s 毫秒",
-            res.get("voice_ms"), res.get("peak"), res.get("wait_ms"),
+            "[音箱] 听到一段：%s 毫秒有声 / 整段 %s 毫秒 / 峰值 %s / 等了 %s 毫秒",
+            res.get("voice_ms"), res.get("clip_ms"), res.get("peak"), res.get("wait_ms"),
         )
         text = await self._transcribe()
         if not text:
@@ -1464,9 +1475,11 @@ class AmberSpeakerPlatform(Platform):
             if (
                 self._awaiting_wake
                 and time.time() - self._wake_at <= self.wake_window
-                # 长句不接：窗口开着的那十几秒里，客厅电视说的话也在这条路上，
-                # 一句话几十个字的基本不可能是对着音箱讲的。
-                and len(text) <= 25
+                # 长句不接：窗口开着的那十几秒里，客厅电视说的话也在这条路上。
+                # 但这个门槛原来是写死的 25 字——中文 25 字只够半句，正常说一件
+                # 事情轻轻就超过，整句被丢掉，用户听到的就是「说长了她不理我」。
+                # 现在是可调项 followup_max_chars（默认 60 字 ≈ 15~20 秒语速）。
+                and len(text) <= self.followup_max_chars
                 and has_content(text, 2)
             ):
                 logger.info("[音箱] 刚叫醒，直接接话（第 %d 轮）：%s",
@@ -1481,8 +1494,16 @@ class AmberSpeakerPlatform(Platform):
                 self._awaiting_wake = True
                 self._wake_at = time.time()
                 return
+            # 走到这里就是「没接」。分开记，因为三种原因修法完全不同：
+            # 窗口关了 / 太长被挡 / 太短被当噪声。
+            too_long = self._awaiting_wake and len(text) > self.followup_max_chars
             self._awaiting_wake = False
-            if len(text) <= 8:
+            if too_long:
+                logger.info(
+                    "[音箱] 接话窗口开着，但这句 %d 字超过上限 %d 字，没接：%s",
+                    len(text), self.followup_max_chars, text[:40],
+                )
+            elif len(text) <= 8:
                 # 短句又没匹配上，是最值得看的一类失败：「大肥鱼」被识别成「第」
                 # 就长这样。日志里留原样，排查时不用再猜。
                 logger.info("[音箱] 没叫她，忽略（短句）：%s", text[:20])

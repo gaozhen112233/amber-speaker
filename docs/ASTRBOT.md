@@ -75,7 +75,8 @@ curl http://<主机IP>:8789/state
 | `voice_loop` | `true` | **语音闭环总开关**：设备自己听，叫了名字才回。关掉就退回「等外部 `/utter`」 |
 | `wake_words` | `大肥鱼,小鱼,肥鱼,大肥,大黑鱼` | 逗号分隔。命中任意一个就算喊她 |
 | `wake_window` | `20` | 应一声之后，多少秒内不用再喊名字 |
-| `wake_followups` | `4` | 一次唤醒最多几轮「不喊名字的接话」 |
+| `wake_followups` | `8` | 一次唤醒最多几轮「不喊名字的接话」。原来 4，聊一件事就超，第 5 句整句丢掉 |
+| `followup_max_chars` | `60` | 接话时的字数上限，超过当电视台词不接。原来写死 25，只够半句话 |
 | `listen_window` | `90` | 一次 `/listen` 最多听多久（人开口就提前返回） |
 | `save_clips` | `false` | 把抓到的 WAV 存到 `data/amber_speaker/clips/`，排查识别用 |
 | `speak_actions` | `true` | 给她「身体说明书」，让她在话里写〔动作词〕 |

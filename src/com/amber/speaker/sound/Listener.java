@@ -21,13 +21,17 @@ import java.io.IOException;
  * {@code max(底×2, 底+50)} 算有声；累计有声够 {@code needMs} 才算真的说了话，
  * 避免敲桌子、外壳热胀冷缩这种单帧尖峰被当成语音。
  *
- * <p>两个数字是 2026-11-22 晚上按实测调过的，别再凭直觉改小：
+ * <p>三个数字是 2026-11-22 晚上按实测调过的，别再凭直觉改小：
  * <ul>
  *   <li><b>收尾静音 650ms</b>（原 350）。原来的 350 会把「大肥……鱼」中间那个
  *       自然停顿当成人说完了，于是截出来只有 400~700ms——「大肥鱼」三个字
  *       根本录不全，识别出来是「飞鱼」「太」「大培鱼」。收尾必须长过一个词的内部停顿。</li>
  *   <li><b>阈值放到 底×2 / 底+50</b>（原 ×2.5 / +80）。用户正常距离说话帧能量
  *       常常只到 1000~4000，旧阈值把轻声的辅音全判成静音，语音被切得支离破碎。</li>
+ *   <li><b>收尾静音随已说时长递增</b>（见 {@link #quietNeedMs}）。650ms 只够挡住
+ *       词内停顿；长句的「换气停顿」动辄 0.8~1.2 秒，一刀切 650ms 就会把
+ *       「我下午看的那个电影讲的是……」截成半句。2026-11-27 真机日志里连续三句
+ *       都以「讲的是。」「他是讲那个。」结尾，就是这么切出来的。</li>
  * </ul>
  */
 public final class Listener {
@@ -47,7 +51,32 @@ public final class Listener {
     // 多带 300ms 完全承受得起，所以把两边都放宽。
     private static final int PRE_MS = 500;                 // 抓到人声前多留一段（原 350）
     private static final int TAIL_MS = 450;                // 说完再多录一点（原 300）
-    private static final int QUIET_END_MS = 650;           // 静多久算说完（原 350，见类注释）
+    /**
+     * 收尾静音：静多久算说完。短句用 700ms（响应快），长句按已说时长递增，
+     * 见 {@link #quietNeedMs(int)}。
+     */
+    private static final int QUIET_END_MS = 700;           // 说不到 2 秒：700ms
+    private static final int QUIET_END_MID_MS = 1100;      // 说了 2 秒以上：1.1 秒
+    private static final int QUIET_END_LONG_MS = 1500;     // 说了 5 秒以上：1.5 秒
+
+    /**
+     * 这一句需要多长的静音才算说完。
+     *
+     * <p>为什么不能一刀切：短句（「现在几点」）要快，等 1.5 秒才张嘴会让每轮对话都拖沓；
+     * 可长句里换气、想词的自然停顿经常 0.8~1.2 秒，用 650~700ms 判就把一句话劈成两半，
+     * 后一半没带唤醒词，直接被丢掉——听感就是「她只听了我前半句」。
+     *
+     * <p>阈值跟着「已经说了多久」走：说得越久，越可能还在继续说，越应该肯等。
+     */
+    private static int quietNeedMs(int voiceMs) {
+        if (voiceMs >= 5000) {
+            return QUIET_END_LONG_MS;
+        }
+        if (voiceMs >= 2000) {
+            return QUIET_END_MID_MS;
+        }
+        return QUIET_END_MS;
+    }
 
     private Listener() {
     }
@@ -331,8 +360,9 @@ public final class Listener {
                     }
                 }
 
-                // 条件：累计有声够长，并且已经连续静了 QUIET_END_MS（一句话说完了）
-                if (voiceFrames * 20 >= needMs && quietRun * 20 >= QUIET_END_MS) {
+                // 条件：累计有声够长，并且已经连续静了「这一句该等的静音」（一句话说完了）
+                if (voiceFrames * 20 >= needMs
+                        && quietRun * 20 >= quietNeedMs(voiceFrames * 20)) {
                     break;
                 }
             }
@@ -375,11 +405,13 @@ public final class Listener {
 
         int from = Math.max(0, firstVoice - PRE_MS / 20);
         int to = Math.min(frames, lastVoice + TAIL_MS / 20 + 1);
-        // 上限 8 秒：一整句话足够长。再长就是人在演讲/电视连续声，
-        // 送上去只会把识别拖到十几秒，而那种内容本来也不该叫醒她。
-        final int maxClipFrames = 8000 / 20;
+        // 上限 30 秒：SenseVoice 单次能吃的就是 30 秒，再长它自己也会切。
+        // 原来写 8 秒，等于「说到第 9 秒的话全部丢掉」——长句被砍成前 8 秒，
+        // 后半句既没进识别、也不会重来（人已经说完了），听感就是「听不全」。
+        final int maxClipFrames = 30000 / 20;
         if (to - from > maxClipFrames) {
             to = from + maxClipFrames;
+            Log.w("Listener", "这段话超过 30 秒（有声 " + voiceMs + "ms），只送前 30 秒");
         }
         int len = (to - from) * FRAME_BYTES;
         byte[] clip = new byte[len];
